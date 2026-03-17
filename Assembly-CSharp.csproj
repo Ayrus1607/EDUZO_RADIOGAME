@@ -10,7 +10,7 @@
     <ProductVersion>10.0.20506</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <RootNamespace></RootNamespace>
-    <ProjectGuid>{DF9BF549-0864-AB38-47BD-DD234B88B7FD}</ProjectGuid>
+    <ProjectGuid>{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <AssemblyName>Assembly-CSharp</AssemblyName>
@@ -66,6 +66,7 @@
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX (legacy)\Scripts\CFX_AutoDestructShuriken.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Scripts\ETFXPitchRandomizer.cs" />
     <Compile Include="Assets\Scripts\RadioQuestionData.cs" />
+    <Compile Include="Assets\Scripts\RadioPulseEffect.cs" />
     <Compile Include="Assets\Scripts\RadioFormController.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\ETFXEffectController.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX (legacy)\Demo\Assets\CFX_Demo_Translate.cs" />
@@ -1470,7 +1471,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Beardy.BeardsGridLayoutGroup.Runtime.csproj">
-      <Project>{E9AAED70-DC87-F02D-476F-80F4C7029BEF}</Project>
+      <Project>{389F3DB4-0B7A-DFCD-6DED-58DB9D7FFCCC}</Project>
       <Name>Beardy.BeardsGridLayoutGroup.Runtime</Name>
     </ProjectReference>
   </ItemGroup>

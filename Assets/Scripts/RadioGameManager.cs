@@ -25,6 +25,7 @@ namespace Eduzo.Games.Radio
 
         [Header("Screens")]
         public GameObject modeSelectionScreen;
+        public GameObject playerDataScreen;
         public GameObject gameScreen;
         public GameObject scoreScreen;
         public GameObject practiceCompleteScreen;
@@ -33,14 +34,20 @@ namespace Eduzo.Games.Radio
         public GameObject formScreen;
 
         [Header("Game UI Elements")]
+        public TMP_InputField playerNameInput;
+        public TextMeshProUGUI finalPlayerNameText;
+        public TMP_InputField timerInput;
+
+        public GameObject timerContainer;
         public TextMeshProUGUI questionText;
         public TextMeshProUGUI option1Text;
         public TextMeshProUGUI option2Text;
         public TextMeshProUGUI timerText;
-        public TMP_InputField timerInput;
         public Transform timerIcon;
 
+        // Array left here purely so the Inspector doesn't break
         public Image[] heartIcons;
+
         public Sprite heartOnSprite;
         public Sprite heartOffSprite;
 
@@ -84,16 +91,34 @@ namespace Eduzo.Games.Radio
         private float activeTimeTotal = 0f;
         private float timeOnCurrentQuestion = 0f;
 
+        // --- CACHED SCALES TO FIX THE GIANT UI BUG ---
         private Vector3 originalTimerScale = Vector3.one;
+        private Vector3 originalTimerContainerScale = Vector3.one;
+        private Vector3 originalTimerInputScale = Vector3.one;
+        private Vector3[] originalHeartScales = new Vector3[] { Vector3.one, Vector3.one, Vector3.one };
+
         private bool isFastTicking = false;
+        private string currentPlayerName = "Player";
 
         private void Awake()
         {
             StopTimerAudio();
             if (timerIcon != null) originalTimerScale = timerIcon.localScale;
 
+            // Cache all original scales before we mess with them
+            if (timerContainer != null) originalTimerContainerScale = timerContainer.transform.localScale;
+            if (timerInput != null) originalTimerInputScale = timerInput.transform.localScale;
+
             if (gameScreen != null)
             {
+                Transform h1 = gameScreen.transform.Find("Heart1");
+                Transform h2 = gameScreen.transform.Find("Heart2");
+                Transform h3 = gameScreen.transform.Find("Heart3");
+
+                if (h1 != null) originalHeartScales[0] = h1.localScale;
+                if (h2 != null) originalHeartScales[1] = h2.localScale;
+                if (h3 != null) originalHeartScales[2] = h3.localScale;
+
                 gameScreen.SetActive(true);
                 CanvasGroup cg = gameScreen.GetComponent<CanvasGroup>();
                 if (cg == null) cg = gameScreen.AddComponent<CanvasGroup>();
@@ -101,26 +126,27 @@ namespace Eduzo.Games.Radio
                 cg.interactable = false;
                 cg.blocksRaycasts = false;
             }
-        }
 
-        private void ToggleGameScreen(bool show)
-        {
-            if (gameScreen == null) return;
-            CanvasGroup cg = gameScreen.GetComponent<CanvasGroup>();
-            if (cg == null) cg = gameScreen.AddComponent<CanvasGroup>();
-
-            if (show)
+            if (playerDataScreen != null)
             {
-                cg.alpha = 1f;
-                cg.interactable = true;
-                cg.blocksRaycasts = true;
-            }
-            else
-            {
+                playerDataScreen.SetActive(true);
+                CanvasGroup cg = playerDataScreen.GetComponent<CanvasGroup>();
+                if (cg == null) cg = playerDataScreen.AddComponent<CanvasGroup>();
                 cg.alpha = 0f;
                 cg.interactable = false;
                 cg.blocksRaycasts = false;
             }
+        }
+
+        private void ToggleCanvas(GameObject obj, bool show)
+        {
+            if (obj == null) return;
+            CanvasGroup cg = obj.GetComponent<CanvasGroup>();
+            if (cg == null) cg = obj.AddComponent<CanvasGroup>();
+
+            cg.alpha = show ? 1f : 0f;
+            cg.interactable = show;
+            cg.blocksRaycasts = show;
         }
 
         private void OnEnable() { RadioFormController.OnRadioFormSubmitted += OnFormSubmitted; }
@@ -138,34 +164,83 @@ namespace Eduzo.Games.Radio
             if (buttonClickSound != null) buttonClickSound.Play();
         }
 
-        public void StartPracticeMode()
+        public void SelectPracticeMode()
         {
             PlayClickSound();
             currentMode = GameMode.Practice;
+            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
+            ToggleCanvas(playerDataScreen, true);
 
-            if (timerText != null) timerText.gameObject.SetActive(false);
+            if (timerInput != null) timerInput.transform.localScale = Vector3.zero;
+        }
+
+        public void SelectTestMode()
+        {
+            PlayClickSound();
+            currentMode = GameMode.Test;
+            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
+            ToggleCanvas(playerDataScreen, true);
+
+            // Restores to perfect original size
+            if (timerInput != null) timerInput.transform.localScale = originalTimerInputScale;
+        }
+
+        public void LaunchGameFromDataScreen()
+        {
+            PlayClickSound();
+            StartCoroutine(SafeTransitionToGame());
+        }
+
+        private IEnumerator SafeTransitionToGame()
+        {
+            if (playerNameInput != null) playerNameInput.DeactivateInputField();
+            if (timerInput != null) timerInput.DeactivateInputField();
+
+            if (UnityEngine.EventSystems.EventSystem.current != null)
+            {
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+            }
+
+            yield return null;
+
+            currentPlayerName = string.IsNullOrEmpty(playerNameInput.text) ? "Player" : playerNameInput.text;
+            ToggleCanvas(playerDataScreen, false);
+
+            if (currentMode == GameMode.Practice) StartPracticeMode();
+            else StartTestMode();
+        }
+
+        private void SetHeartsActiveState(bool show)
+        {
+            if (gameScreen == null) return;
+
+            Transform h1 = gameScreen.transform.Find("Heart1");
+            if (h1 != null) h1.localScale = show ? originalHeartScales[0] : Vector3.zero;
+
+            Transform h2 = gameScreen.transform.Find("Heart2");
+            if (h2 != null) h2.localScale = show ? originalHeartScales[1] : Vector3.zero;
+
+            Transform h3 = gameScreen.transform.Find("Heart3");
+            if (h3 != null) h3.localScale = show ? originalHeartScales[2] : Vector3.zero;
+        }
+
+        private void StartPracticeMode()
+        {
+            if (timerContainer != null) timerContainer.transform.localScale = Vector3.zero;
 
             StopTimerAudio();
             if (timerIcon != null) timerIcon.localScale = originalTimerScale;
 
-            if (heartIcons != null)
-            {
-                for (int i = 0; i < heartIcons.Length; i++)
-                {
-                    if (heartIcons[i] != null) heartIcons[i].gameObject.SetActive(false);
-                }
-            }
+            SetHeartsActiveState(false);
 
             StartGame();
         }
 
-        public void StartTestMode()
+        private void StartTestMode()
         {
-            PlayClickSound();
-            currentMode = GameMode.Test;
             lives = 3;
-
             timer = 60f;
+
             if (timerInput != null && !string.IsNullOrEmpty(timerInput.text))
             {
                 if (float.TryParse(timerInput.text, out float customTime) && customTime > 0)
@@ -174,8 +249,10 @@ namespace Eduzo.Games.Radio
                 }
             }
 
-            if (timerText != null) timerText.gameObject.SetActive(true);
+            // Restores to perfect original size
+            if (timerContainer != null) timerContainer.transform.localScale = originalTimerContainerScale;
 
+            SetHeartsActiveState(true);
             UpdateLivesUI();
 
             isFastTicking = false;
@@ -185,10 +262,60 @@ namespace Eduzo.Games.Radio
             StartGame();
         }
 
+        private void UpdateLivesUI()
+        {
+            if (gameScreen == null) return;
+
+            Transform[] dynamicHearts = new Transform[] {
+                gameScreen.transform.Find("Heart1"),
+                gameScreen.transform.Find("Heart2"),
+                gameScreen.transform.Find("Heart3")
+            };
+
+            for (int i = 0; i < dynamicHearts.Length; i++)
+            {
+                if (dynamicHearts[i] != null)
+                {
+                    Image img = dynamicHearts[i].GetComponent<Image>();
+                    if (img != null && heartOnSprite != null && heartOffSprite != null)
+                    {
+                        img.sprite = (i < lives) ? heartOnSprite : heartOffSprite;
+                    }
+                    if (img != null) img.color = Color.white;
+                }
+            }
+        }
+
+        private IEnumerator ShakeAndSwapHeart(int heartIndex)
+        {
+            if (gameScreen == null) yield break;
+
+            string heartName = "Heart" + (heartIndex + 1);
+            Transform heartTransform = gameScreen.transform.Find(heartName);
+
+            if (heartTransform == null) yield break;
+
+            Vector3 originalPos = heartTransform.localPosition;
+            float elapsed = 0f;
+            float duration = 0.3f;
+            while (elapsed < duration)
+            {
+                float x = Random.Range(-1f, 1f) * 6f;
+                float y = Random.Range(-1f, 1f) * 6f;
+                heartTransform.localPosition = new Vector3(originalPos.x + x, originalPos.y + y, originalPos.z);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            heartTransform.localPosition = originalPos;
+
+            Image img = heartTransform.GetComponent<Image>();
+            if (img != null && heartOffSprite != null) img.sprite = heartOffSprite;
+        }
+
         private void StartGame()
         {
             if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
-            ToggleGameScreen(true);
+            ToggleCanvas(gameScreen, true);
             if (optionsMenuScreen != null) optionsMenuScreen.SetActive(false);
 
             currentQuestionIndex = 0;
@@ -228,6 +355,7 @@ namespace Eduzo.Games.Radio
                 {
                     float pulseSpeed = isFastTicking ? 15f : 5f;
                     float scaleAmount = isFastTicking ? 0.2f : 0.05f;
+
                     float pulse = 1f + Mathf.Abs(Mathf.Sin(activeTimeTotal * pulseSpeed)) * scaleAmount;
                     timerIcon.localScale = originalTimerScale * pulse;
                 }
@@ -327,9 +455,9 @@ namespace Eduzo.Games.Radio
                 if (currentMode == GameMode.Test)
                 {
                     lives--;
-                    if (lives >= 0 && heartIcons != null && lives < heartIcons.Length && heartIcons[lives] != null)
+                    if (lives >= 0 && lives < 3)
                     {
-                        StartCoroutine(ShakeAndSwapHeart(heartIcons[lives]));
+                        StartCoroutine(ShakeAndSwapHeart(lives));
                     }
 
                     currentQuestionIndex++;
@@ -355,46 +483,6 @@ namespace Eduzo.Games.Radio
                 vfx.transform.localScale = new Vector3(specificScale, specificScale, specificScale);
                 Destroy(vfx, 2f);
             }
-        }
-
-        private void UpdateLivesUI()
-        {
-            if (heartIcons == null || heartIcons.Length == 0) return;
-
-            for (int i = 0; i < heartIcons.Length; i++)
-            {
-                Image heart = heartIcons[i];
-
-                if (heart == null) continue;
-
-                heart.gameObject.SetActive(currentMode == GameMode.Test);
-
-                if (heartOnSprite != null && heartOffSprite != null)
-                {
-                    heart.sprite = (i < lives) ? heartOnSprite : heartOffSprite;
-                }
-
-                heart.color = Color.white;
-            }
-        }
-
-        private IEnumerator ShakeAndSwapHeart(Image heart)
-        {
-            if (heart == null) yield break;
-
-            Vector3 originalPos = heart.transform.localPosition;
-            float elapsed = 0f;
-            float duration = 0.3f;
-            while (elapsed < duration)
-            {
-                float x = Random.Range(-1f, 1f) * 6f;
-                float y = Random.Range(-1f, 1f) * 6f;
-                heart.transform.localPosition = new Vector3(originalPos.x + x, originalPos.y + y, originalPos.z);
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-            heart.transform.localPosition = originalPos;
-            heart.sprite = heartOffSprite;
         }
 
         private void StopTimerAudio()
@@ -430,7 +518,7 @@ namespace Eduzo.Games.Radio
         private IEnumerator ShowGameOverSequence()
         {
             yield return new WaitForSeconds(1.5f);
-            ToggleGameScreen(false);
+            ToggleCanvas(gameScreen, false);
             if (gameOverScreen != null) gameOverScreen.SetActive(true);
 
             yield return new WaitForSeconds(3f);
@@ -441,14 +529,14 @@ namespace Eduzo.Games.Radio
 
         private void ShowScoreScreen()
         {
-            ToggleGameScreen(false);
+            ToggleCanvas(gameScreen, false);
             if (scoreScreen != null) scoreScreen.SetActive(true);
             GenerateScoreReport();
         }
 
         private void ShowPracticeCompleteScreen()
         {
-            ToggleGameScreen(false);
+            ToggleCanvas(gameScreen, false);
             if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(true);
         }
 
@@ -461,6 +549,11 @@ namespace Eduzo.Games.Radio
 
             OnRadioScoreCalculated?.Invoke(percentage);
             OnRadioGameCompleted?.Invoke(responseHistory);
+
+            if (finalPlayerNameText != null)
+            {
+                finalPlayerNameText.text = "PLAYER: " + currentPlayerName.ToUpper();
+            }
 
             string report = $"======== GAME SCORE SUMMARY ========\nScore: {Mathf.RoundToInt(percentage)}%\nActive Time: {activeTimeTotal:F2}s\nIdle Time: 0s\n\nTotal Responses: {total}\nCorrect: {correct}\nWrong: {total - correct}\n\n======== QUESTION BREAKDOWN ========\n\n";
             for (int i = 0; i < responseHistory.Count; i++)
@@ -520,12 +613,14 @@ namespace Eduzo.Games.Radio
 
             if (scoreScreen != null) scoreScreen.SetActive(false);
             if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(false);
-            ToggleGameScreen(false);
+            ToggleCanvas(gameScreen, false);
 
             if (gameOverScreen != null) gameOverScreen.SetActive(false);
             if (optionsMenuScreen != null) optionsMenuScreen.SetActive(false);
+            ToggleCanvas(playerDataScreen, false);
 
             if (timerInput != null) timerInput.text = "";
+            if (playerNameInput != null) playerNameInput.text = "";
 
             if (modeSelectionScreen != null) modeSelectionScreen.SetActive(true);
         }
@@ -541,11 +636,12 @@ namespace Eduzo.Games.Radio
 
             if (scoreScreen != null) scoreScreen.SetActive(false);
             if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(false);
-            ToggleGameScreen(false);
+            ToggleCanvas(gameScreen, false);
 
             if (gameOverScreen != null) gameOverScreen.SetActive(false);
             if (optionsMenuScreen != null) optionsMenuScreen.SetActive(false);
             if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
+            ToggleCanvas(playerDataScreen, false);
 
             questionBank.Clear();
 

@@ -10,7 +10,7 @@
     <ProductVersion>10.0.20506</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <RootNamespace></RootNamespace>
-    <ProjectGuid>{E9AAED70-DC87-F02D-476F-80F4C7029BEF}</ProjectGuid>
+    <ProjectGuid>{389F3DB4-0B7A-DFCD-6DED-58DB9D7FFCCC}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <AssemblyName>Beardy.BeardsGridLayoutGroup.Runtime</AssemblyName>

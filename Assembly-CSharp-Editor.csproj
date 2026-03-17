@@ -10,7 +10,7 @@
     <ProductVersion>10.0.20506</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <RootNamespace></RootNamespace>
-    <ProjectGuid>{D6BCA37A-0202-B593-04B2-51E82500CCF5}</ProjectGuid>
+    <ProjectGuid>{18771CD6-2A6B-DC4F-6329-E128CAE33C8F}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <AssemblyName>Assembly-CSharp-Editor</AssemblyName>
@@ -1475,11 +1475,11 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Assembly-CSharp.csproj">
-      <Project>{DF9BF549-0864-AB38-47BD-DD234B88B7FD}</Project>
+      <Project>{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}</Project>
       <Name>Assembly-CSharp</Name>
     </ProjectReference>
     <ProjectReference Include="Beardy.BeardsGridLayoutGroup.Runtime.csproj">
-      <Project>{E9AAED70-DC87-F02D-476F-80F4C7029BEF}</Project>
+      <Project>{389F3DB4-0B7A-DFCD-6DED-58DB9D7FFCCC}</Project>
       <Name>Beardy.BeardsGridLayoutGroup.Runtime</Name>
     </ProjectReference>
   </ItemGroup>
