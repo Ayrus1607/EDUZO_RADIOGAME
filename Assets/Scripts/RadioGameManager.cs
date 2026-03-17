@@ -411,6 +411,11 @@ namespace Eduzo.Games.Radio
         {
             if (!isPlaying || isPaused) return;
 
+            if (UnityEngine.EventSystems.EventSystem.current != null)
+            {
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+            }
+
             RadioQuestionData q = questionBank[currentQuestionIndex];
             bool correct = (selectedAnswer == q.correctAnswer);
 
