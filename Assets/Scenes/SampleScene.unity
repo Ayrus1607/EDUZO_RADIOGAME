@@ -3298,7 +3298,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -7124,6 +7124,8 @@ MonoBehaviour:
   fastTickSound: {fileID: 1946723022}
   buttonClickSound: {fileID: 1766894995}
   currentMode: 0
+  delayBeforeFade: 1
+  fadeSpeed: 1
   correctVFXPrefab: {fileID: 162456, guid: aa67315846cbf1a4db925cced0c050da, type: 3}
   secondaryCorrectVFXPrefab: {fileID: 1927760090308422, guid: 84f99f9a0f1238e418427366cb763c22, type: 3}
   tertiaryCorrectVFXPrefabs:

@@ -65,6 +65,11 @@ namespace Eduzo.Games.Radio
         public GameMode currentMode = GameMode.None;
 
         [Header("VFX")]
+        [Header("Transition Settings")]
+        [Tooltip("How long to wait before starting the fade (seconds)")]
+        public float delayBeforeFade = 1.5f;
+        [Tooltip("How fast the screen fades out and back in")]
+        public float fadeSpeed = 3f;
         public GameObject correctVFXPrefab;
         public GameObject secondaryCorrectVFXPrefab;
         public GameObject[] tertiaryCorrectVFXPrefabs;
@@ -87,6 +92,7 @@ namespace Eduzo.Games.Radio
         private int lives = 3;
         private bool isPlaying = false;
         private bool isPaused = false;
+        private bool isTransitioning = false; // Prevents clicking during fade
         private List<RadioUserResponse> responseHistory = new List<RadioUserResponse>();
         private float activeTimeTotal = 0f;
         private float timeOnCurrentQuestion = 0f;
@@ -321,8 +327,12 @@ namespace Eduzo.Games.Radio
             currentQuestionIndex = 0;
             isPlaying = true;
             isPaused = false;
+            isTransitioning = false;
             responseHistory.Clear();
             activeTimeTotal = 0f;
+
+            // Ensure text is visible at the start of a new game
+            SetTextAlpha(1f);
 
             StartCoroutine(DelayedLoadQuestion());
         }
@@ -330,7 +340,7 @@ namespace Eduzo.Games.Radio
         private IEnumerator DelayedLoadQuestion()
         {
             yield return null;
-            LoadNextQuestion();
+            LoadNextQuestionData();
         }
 
         private void Update()
@@ -374,7 +384,8 @@ namespace Eduzo.Games.Radio
             }
         }
 
-        private void LoadNextQuestion()
+        // Renamed to LoadNextQuestionData so the Coroutine can call it while text is invisible
+        private void LoadNextQuestionData()
         {
             if (currentQuestionIndex < questionBank.Count)
             {
@@ -409,8 +420,10 @@ namespace Eduzo.Games.Radio
 
         private void VerifyAnswer(string selectedAnswer)
         {
-            if (!isPlaying || isPaused) return;
+            // Block clicks if game is paused, over, or currently fading
+            if (!isPlaying || isPaused || isTransitioning) return;
 
+            // Instantly remove highlight from the clicked button
             if (UnityEngine.EventSystems.EventSystem.current != null)
             {
                 UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
@@ -474,7 +487,48 @@ namespace Eduzo.Games.Radio
                     }
                 }
             }
-            LoadNextQuestion();
+
+            // Start the fade and delay transition
+            StartCoroutine(TransitionToNextQuestion());
+        }
+
+        private IEnumerator TransitionToNextQuestion()
+        {
+            isTransitioning = true;
+
+            // 1. Wait using your new public variable!
+            yield return new WaitForSeconds(delayBeforeFade);
+
+            CanvasGroup cg = gameScreen.GetComponent<CanvasGroup>();
+            if (cg == null) cg = gameScreen.AddComponent<CanvasGroup>();
+
+            // 2. Fade Out using your public fadeSpeed!
+            while (cg.alpha > 0)
+            {
+                cg.alpha -= Time.deltaTime * fadeSpeed;
+                yield return null;
+            }
+
+            // 3. Load the next question data while the screen is black
+            LoadNextQuestionData();
+
+            // 4. Fade the screen back In
+            while (cg.alpha < 1)
+            {
+                cg.alpha += Time.deltaTime * fadeSpeed;
+                yield return null;
+            }
+
+            // Ensure it is perfectly fully visible at the end
+            cg.alpha = 1f;
+            isTransitioning = false;
+        }
+
+        private void SetTextAlpha(float alpha)
+        {
+            if (questionText != null) questionText.color = new Color(questionText.color.r, questionText.color.g, questionText.color.b, alpha);
+            if (option1Text != null) option1Text.color = new Color(option1Text.color.r, option1Text.color.g, option1Text.color.b, alpha);
+            if (option2Text != null) option2Text.color = new Color(option2Text.color.r, option2Text.color.g, option2Text.color.b, alpha);
         }
 
         private void SpawnVFX(GameObject prefab, Transform spawnLocation, float specificScale)
