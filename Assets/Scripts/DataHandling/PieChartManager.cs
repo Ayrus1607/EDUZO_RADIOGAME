@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using System.Collections.Generic;
 
 namespace Eduzo.Games.DataHandling
@@ -7,45 +8,91 @@ namespace Eduzo.Games.DataHandling
     public class PieChartManager : MonoBehaviour
     {
         [Header("Setup")]
-        public GameObject pieSlicePrefab;
+        public GameObject slicePrefab;
         public Transform pieContainer;
+        public float labelDistance = 120f;
 
-        [Header("Slice Colors")]
-        public Color[] sliceColors; // We will set Red, Grey, Purple in the Inspector
+        [Header("Legend Setup")]
+        public GameObject legendItemPrefab;
+        public Transform legendContainer;
 
-        public void GeneratePieChart(List<int> data)
+        [Header("Colors")]
+        public List<Color> sliceColors;
+
+        // --- UPDATED: Added targetIndex to know exactly which slice gets the '?' ---
+        public void GeneratePieChart(List<int> data, List<string> categoryNames, int targetIndex)
         {
-            // 1. Clean up old slices
-            foreach (Transform child in pieContainer)
+            // 1. Clean up old slices and legends
+            foreach (Transform child in pieContainer) Destroy(child.gameObject);
+            if (legendContainer != null)
             {
-                Destroy(child.gameObject);
+                foreach (Transform child in legendContainer) Destroy(child.gameObject);
             }
 
-            // 2. Find the total sum
+            // 2. Sum the data
             float total = 0;
             foreach (int amount in data) total += amount;
+            if (total == 0) return;
 
-            // 3. Draw the slices
-            float currentRotation = 0f;
-
+            // 3. Draw Slices, Labels, and Legends
+            float zRotation = 0f;
             for (int i = 0; i < data.Count; i++)
             {
-                // Spawn the slice
-                GameObject newSlice = Instantiate(pieSlicePrefab, pieContainer);
+                // --- SLICE DRAWING ---
+                GameObject newSlice = Instantiate(slicePrefab, pieContainer);
                 Image sliceImage = newSlice.GetComponent<Image>();
 
-                // Set Color
-                if (i < sliceColors.Length) sliceImage.color = sliceColors[i];
+                if (sliceColors != null && sliceColors.Count > 0)
+                    sliceImage.color = sliceColors[i % sliceColors.Count];
 
-                // Calculate how much of the pie this slice takes
-                float fillPercentage = data[i] / total;
-                sliceImage.fillAmount = fillPercentage;
+                float fillAmount = (float)data[i] / total;
+                sliceImage.fillAmount = fillAmount;
+                newSlice.transform.localRotation = Quaternion.Euler(0, 0, -zRotation);
 
-                // Rotate it so it starts exactly where the last one ended
-                newSlice.GetComponent<RectTransform>().localRotation = Quaternion.Euler(0, 0, -currentRotation);
+                // --- THE LABEL MATH ---
+                TextMeshProUGUI labelText = newSlice.transform.GetComponentInChildren<TextMeshProUGUI>();
+                if (labelText != null)
+                {
+                    // Calculate exact percentage
+                    float percentage = fillAmount * 100f;
 
-                // Update rotation for the next slice
-                currentRotation += (fillPercentage * 360f);
+                    // --- NEW MAGIC: Only hide the text if it matches the GameManager's target! ---
+                    if (i == targetIndex)
+                    {
+                        labelText.text = "?";
+                    }
+                    else
+                    {
+                        labelText.text = Mathf.RoundToInt(percentage) + "%";
+                    }
+
+                    // Push the text out from the center
+                    float halfAngleRad = (fillAmount * 360f / 2f) * Mathf.Deg2Rad;
+                    float localX = Mathf.Sin(halfAngleRad) * labelDistance;
+                    float localY = Mathf.Cos(halfAngleRad) * labelDistance;
+
+                    labelText.rectTransform.anchoredPosition = new Vector2(localX, localY);
+                    labelText.rectTransform.localRotation = Quaternion.Euler(0, 0, zRotation);
+                }
+
+                // --- LEGEND DRAWING ---
+                if (legendItemPrefab != null && legendContainer != null)
+                {
+                    GameObject newLegend = Instantiate(legendItemPrefab, legendContainer);
+                    Image colorBox = newLegend.transform.Find("Color_Box")?.GetComponent<Image>();
+                    TextMeshProUGUI categoryText = newLegend.transform.Find("Category_Name")?.GetComponent<TextMeshProUGUI>();
+
+                    if (colorBox != null) colorBox.color = sliceImage.color;
+                    if (categoryText != null)
+                    {
+                        // Use the custom names passed in from the Form!
+                        string catName = (categoryNames != null && i < categoryNames.Count) ? categoryNames[i] : "Item " + (i + 1);
+                        categoryText.text = catName;
+                    }
+                }
+
+                // Advance the rotation for the next slice
+                zRotation += fillAmount * 360f;
             }
         }
     }

@@ -1,63 +1,58 @@
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro;
 using System.Collections.Generic;
 
 namespace Eduzo.Games.DataHandling
 {
     public class TallyMarkManager : MonoBehaviour
     {
-        [Header("Prefabs & Containers")]
+        [Header("Prefabs")]
         public GameObject tallyRowPrefab;
         public GameObject tallyBundlePrefab;
-        public Transform mainTallyContainer;
+        public GameObject tallySinglePrefab;
 
-        [Header("Colors")]
-        public Color[] rowColors;
+        [Header("Container")]
+        public Transform tallyContainer; // The chalkboard area that holds all the rows
 
-        public void GenerateTallyMarks(List<int> data)
+        // --- UPDATED: Now it strictly uses the custom names from the GameManager ---
+        public void GenerateTallyMarks(List<int> data, List<string> categoryNames)
         {
-            // 1. Clear old data from the board
-            foreach (Transform child in mainTallyContainer) Destroy(child.gameObject);
+            // 1. Clear out any old rows
+            foreach (Transform child in tallyContainer) Destroy(child.gameObject);
 
-            // 2. Loop through each math value (Apples: 5, Oranges: 12, Bananas: 8)
+            // 2. Loop through the numbers and spawn the rows
             for (int i = 0; i < data.Count; i++)
             {
-                int amount = data[i];
-                Color rowColor = (i < rowColors.Length) ? rowColors[i] : Color.white;
+                // Spawn the Row 
+                GameObject newRow = Instantiate(tallyRowPrefab, tallyContainer);
 
-                // 3. Spawn a Row for this specific category
-                GameObject newRow = Instantiate(tallyRowPrefab, mainTallyContainer);
-
-                // 4. Calculate full bundles of 5, and the remainder (e.g. 12 = two bundles of 5, one bundle of 2)
-                int fullBundles = amount / 5;
-                int remainder = amount % 5;
-
-                // 5. Spawn the full bundles
-                for (int b = 0; b < fullBundles; b++)
+                // Set the Category Text using your custom names!
+                TextMeshProUGUI rowText = newRow.transform.GetComponentInChildren<TextMeshProUGUI>();
+                if (rowText != null)
                 {
-                    SpawnBundle(5, newRow.transform, rowColor);
+                    rowText.text = (categoryNames != null && i < categoryNames.Count) ? categoryNames[i] : "Item " + (i + 1);
                 }
 
-                // 6. Spawn the remainder
-                if (remainder > 0)
+                // Find the spawn area on the right side of the row
+                Transform spawnArea = newRow.transform.Find("Canvas/Tally_Spawn_Area");
+                if (spawnArea != null)
                 {
-                    SpawnBundle(remainder, newRow.transform, rowColor);
+                    // --- THE MATH! ---
+                    int bundles = data[i] / 5; // How many groups of 5?
+                    int singles = data[i] % 5; // What is the remainder?
+
+                    // Spawn the bundles first
+                    for (int b = 0; b < bundles; b++)
+                    {
+                        Instantiate(tallyBundlePrefab, spawnArea);
+                    }
+
+                    // Spawn the single lines next
+                    for (int s = 0; s < singles; s++)
+                    {
+                        Instantiate(tallySinglePrefab, spawnArea);
+                    }
                 }
-            }
-        }
-
-        private void SpawnBundle(int linesToShow, Transform parentRow, Color color)
-        {
-            GameObject bundle = Instantiate(tallyBundlePrefab, parentRow);
-
-            // Turn on the exact number of lines we need, and color them!
-            for (int i = 0; i < bundle.transform.childCount; i++)
-            {
-                Transform lineTransform = bundle.transform.GetChild(i);
-                lineTransform.gameObject.SetActive(i < linesToShow);
-
-                Image lineImg = lineTransform.GetComponent<Image>();
-                if (lineImg != null) lineImg.color = color;
             }
         }
     }

@@ -8,19 +8,34 @@ namespace Eduzo.Games.DataHandling
     public class QuestionData
     {
         public string questionText;
+        public List<string> categoryNames;
         public List<int> dataValues;
         public string correctAnswer;
-        public int preferredMode = -1; // --- NEW: -1 = Random, 0=Bar, 1=Pie, 2=Tally, 3=Table ---
+        public int preferredMode = -1;
+        public Sprite questionImage;
+        public int targetIndex = 0;
     }
 
     public class DataGameManager : MonoBehaviour
     {
+        [Header("Developer Debug Mode")]
+        public bool quickStartDebug = false;
+        public int forceGameMode = 0;
+        public List<int> debugDataValues = new List<int> { 35, 15, 50 };
+
+        [Header("Clipboard UI")]
+        public GameObject clipboardRowPrefab;
+        public Transform clipboardListContainer;
+
         [Header("UI Screens")]
-        public GameObject formScreen; // --- NEW: Form Screen Reference ---
+        public GameObject formScreen;
         public GameObject modeSelectionScreen;
         public GameObject playerDataScreen;
         public GameObject gameScreen;
         public GameObject gameOverScreen;
+        public GameObject optionsMenuScreen;
+        public GameObject practiceCompleteScreen; // <-- NEW!
+        public GameObject scoreScreen;            // <-- NEW!
 
         [Header("Player Data UI")]
         public TMP_InputField playerNameInput;
@@ -45,13 +60,13 @@ namespace Eduzo.Games.DataHandling
         public BarGraphManager graphManager;
         public PieChartManager pieManager;
         public TallyMarkManager tallyManager;
-        public DataTableManager tableManager;
 
         [Header("Containers (For Auto-Hiding)")]
         public GameObject barGraphContainer;
         public GameObject pieChartContainer;
         public GameObject tallyContainer;
-        public GameObject tableContainer;
+        public GameObject lookAndCountContainer;
+        public UnityEngine.UI.Image lookAndCountImageUI;
 
         [Header("UI & Scanner")]
         public TextMeshProUGUI questionText;
@@ -61,8 +76,14 @@ namespace Eduzo.Games.DataHandling
         [Header("Question Bank")]
         public List<QuestionData> questionBank;
         private string expectedAnswer = "";
+        private string inputBuffer = "";
 
-        [Header("Game State")]
+        // --- NEW: Tracking Progress ---
+        private List<int> unaskedQuestions = new List<int>();
+        private int currentQuestionBankIndex = -1;
+
+        private List<string> defaultCategoryNames = new List<string> { "Oranges", "Apples", "Grapes", "Bananas", "Mangoes" };
+
         [HideInInspector] public bool isPracticeMode = false;
         [HideInInspector] public string currentPlayerName = "";
         [HideInInspector] public int currentTimerValue = 60;
@@ -81,42 +102,72 @@ namespace Eduzo.Games.DataHandling
 
         void Start()
         {
-            // --- UPDATED: Turn ON the Form Screen first! Turn off everything else ---
-            if (formScreen != null) formScreen.SetActive(true);
-            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
-            if (playerDataScreen != null) playerDataScreen.SetActive(false);
-            if (gameScreen != null) gameScreen.SetActive(false);
-            if (gameOverScreen != null) gameOverScreen.SetActive(false);
-
             if (timerIcon != null)
             {
                 originalTimerPos = timerIcon.anchoredPosition;
                 originalTimerScale = timerIcon.localScale;
             }
+
+            if (quickStartDebug)
+            {
+                if (formScreen != null) formScreen.SetActive(false);
+                if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
+                if (playerDataScreen != null) playerDataScreen.SetActive(false);
+                if (gameOverScreen != null) gameOverScreen.SetActive(false);
+                if (optionsMenuScreen != null) optionsMenuScreen.SetActive(false);
+                if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(false);
+                if (scoreScreen != null) scoreScreen.SetActive(false);
+                if (gameScreen != null) gameScreen.SetActive(true);
+
+                if (questionBank == null) questionBank = new List<QuestionData>();
+                if (questionBank.Count == 0)
+                {
+                    QuestionData debugQ = new QuestionData();
+                    debugQ.dataValues = debugDataValues;
+                    debugQ.correctAnswer = debugDataValues[0].ToString();
+                    debugQ.preferredMode = forceGameMode;
+                    questionBank.Add(debugQ);
+                }
+                else
+                {
+                    questionBank[0].preferredMode = forceGameMode;
+                    questionBank[0].dataValues = debugDataValues;
+                }
+
+                isPracticeMode = true;
+
+                // Populate the tracker for debug mode
+                unaskedQuestions.Clear();
+                for (int i = 0; i < questionBank.Count; i++) unaskedQuestions.Add(i);
+
+                StartTestQuestion();
+                return;
+            }
+
+            if (formScreen != null) formScreen.SetActive(true);
+            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
+            if (playerDataScreen != null) playerDataScreen.SetActive(false);
+            if (gameScreen != null) gameScreen.SetActive(false);
+            if (gameOverScreen != null) gameOverScreen.SetActive(false);
+            if (optionsMenuScreen != null) optionsMenuScreen.SetActive(false);
+            if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(false);
+            if (scoreScreen != null) scoreScreen.SetActive(false);
         }
 
         void Update()
         {
-            if (isTimerRunning)
+            if (isTimerRunning && !isPracticeMode)
             {
                 timeRemaining -= Time.deltaTime;
-                UpdateTimerUI();
+                if (timerText != null) timerText.text = Mathf.CeilToInt(timeRemaining).ToString();
 
                 if (timeRemaining > 10f)
                 {
-                    if (timerIcon != null)
-                    {
-                        float scale = 1f + (Mathf.Sin(Time.time * pulseSpeed) * pulseAmount);
-                        timerIcon.localScale = originalTimerScale * scale;
-                    }
+                    if (timerIcon != null) timerIcon.localScale = originalTimerScale * (1f + (Mathf.Sin(Time.time * pulseSpeed) * pulseAmount));
                 }
                 else
                 {
-                    if (!isFastTicking)
-                    {
-                        isFastTicking = true;
-                        if (timerIcon != null) timerIcon.localScale = originalTimerScale;
-                    }
+                    if (!isFastTicking) { isFastTicking = true; if (timerIcon != null) timerIcon.localScale = originalTimerScale; }
                     if (timerIcon != null) timerIcon.anchoredPosition = originalTimerPos + Random.insideUnitCircle * shakeIntensity;
                 }
 
@@ -124,124 +175,173 @@ namespace Eduzo.Games.DataHandling
                 if (currentSecond < lastTickSecond && currentSecond > 0)
                 {
                     lastTickSecond = currentSecond;
-                    PlayTickSound();
+                    if (isFastTicking && fastTick != null) fastTick.Play();
+                    else if (!isFastTicking && normalTick != null) normalTick.Play();
                 }
 
-                if (timeRemaining <= 0)
-                {
-                    timeRemaining = 0;
-                    UpdateTimerUI();
-                    TriggerGameOver();
-                }
+                if (timeRemaining <= 0) TriggerGameOver();
             }
-        }
-
-        private void PlayTickSound()
-        {
-            if (isFastTicking && fastTick != null) fastTick.Play();
-            else if (!isFastTicking && normalTick != null) normalTick.Play();
-        }
-
-        private void UpdateTimerUI()
-        {
-            if (timerText != null) timerText.text = Mathf.CeilToInt(timeRemaining).ToString();
         }
 
         public void SelectPracticeMode()
         {
             if (buttonSelect != null) buttonSelect.Play();
             isPracticeMode = true;
-            GoToPlayerDataScreen();
+
+            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
+            if (playerDataScreen != null) playerDataScreen.SetActive(true);
+
+            if (timerInput != null) timerInput.gameObject.SetActive(false);
         }
 
         public void SelectTestMode()
         {
             if (buttonSelect != null) buttonSelect.Play();
             isPracticeMode = false;
-            GoToPlayerDataScreen();
-        }
-
-        private void GoToPlayerDataScreen()
-        {
-            if (fastTick != null) fastTick.Stop();
-            if (normalTick != null) normalTick.Stop();
 
             if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
             if (playerDataScreen != null) playerDataScreen.SetActive(true);
 
-            if (timerInput != null) timerInput.gameObject.SetActive(!isPracticeMode);
+            if (timerInput != null) timerInput.gameObject.SetActive(true);
         }
 
-        public void SubmitPlayerDataAndStart()
+        public void StartGameFromPlayerData()
         {
             if (buttonSelect != null) buttonSelect.Play();
 
-            if (playerNameInput != null) currentPlayerName = playerNameInput.text;
-
-            if (!isPracticeMode && timerInput != null)
+            if (playerNameInput != null && !string.IsNullOrEmpty(playerNameInput.text))
             {
-                int.TryParse(timerInput.text, out currentTimerValue);
-                if (currentTimerValue <= 0) currentTimerValue = 60;
+                currentPlayerName = playerNameInput.text;
             }
 
-            if (playerDataScreen != null) playerDataScreen.SetActive(false);
-            if (gameScreen != null) gameScreen.SetActive(true);
-
-            // BGM starts when actual gameplay starts!
-            if (backgroundMusic != null && !backgroundMusic.isPlaying) backgroundMusic.Play();
+            // --- NEW: Setup the question tracker so it knows how many questions to ask! ---
+            unaskedQuestions.Clear();
+            for (int i = 0; i < questionBank.Count; i++)
+            {
+                unaskedQuestions.Add(i);
+            }
 
             if (isPracticeMode)
             {
                 if (timerContainer != null) timerContainer.SetActive(false);
-                foreach (GameObject heart in hearts) if (heart != null) heart.SetActive(false);
-                isTimerRunning = false;
+                foreach (var heart in hearts) if (heart != null) heart.SetActive(false);
             }
             else
             {
-                if (timerContainer != null) timerContainer.SetActive(true);
-                foreach (GameObject heart in hearts) if (heart != null) heart.SetActive(true);
-                currentLives = hearts.Length;
-
-                timeRemaining = currentTimerValue;
-                lastTickSecond = currentTimerValue;
-                isFastTicking = false;
-
-                if (timerIcon != null)
+                if (timerInput != null && int.TryParse(timerInput.text, out int parsedTime))
                 {
-                    timerIcon.anchoredPosition = originalTimerPos;
-                    timerIcon.localScale = originalTimerScale;
+                    currentTimerValue = parsedTime;
+                }
+                else
+                {
+                    currentTimerValue = 60;
                 }
 
-                UpdateTimerUI();
-                isTimerRunning = true;
+                timeRemaining = currentTimerValue;
+                isFastTicking = false;
+
+                if (timerContainer != null) timerContainer.SetActive(true);
+                currentLives = 3;
+                foreach (var heart in hearts) if (heart != null) heart.SetActive(true);
             }
+
+            if (playerDataScreen != null) playerDataScreen.SetActive(false);
+            if (gameScreen != null) gameScreen.SetActive(true);
 
             StartTestQuestion();
         }
 
         public void StartTestQuestion()
         {
-            if (questionBank.Count == 0) return;
+            // --- NEW: Did we finish all the questions? ---
+            if (unaskedQuestions.Count == 0)
+            {
+                if (isPracticeMode) TriggerPracticeComplete();
+                else TriggerScoreScreen(); // In test mode, we go to the score screen!
+                return;
+            }
 
-            int randomQIndex = Random.Range(0, questionBank.Count);
-            QuestionData currentQuestion = questionBank[randomQIndex];
+            // Grab a random question from the REMAINING unasked questions
+            int randomListIndex = Random.Range(0, unaskedQuestions.Count);
+            currentQuestionBankIndex = unaskedQuestions[randomListIndex];
+            QuestionData currentQuestion = questionBank[currentQuestionBankIndex];
 
-            if (questionText != null) questionText.text = currentQuestion.questionText;
             expectedAnswer = currentQuestion.correctAnswer;
+            inputBuffer = "";
+
+            int targetMode = currentQuestion.preferredMode;
+            if (targetMode == -1) targetMode = Random.Range(0, 4);
+
+            if (questionText != null)
+            {
+                if (targetMode == 0) questionText.text = "Bar Graph";
+                else if (targetMode == 1) questionText.text = "Pie Chart";
+                else if (targetMode == 2) questionText.text = "Tally Chart";
+                else if (targetMode == 3) questionText.text = "Look & Count";
+            }
+
+            List<string> activeCategories = (currentQuestion.categoryNames != null && currentQuestion.categoryNames.Count > 0)
+                                            ? currentQuestion.categoryNames
+                                            : defaultCategoryNames;
 
             if (barGraphContainer) barGraphContainer.SetActive(false);
             if (pieChartContainer) pieChartContainer.SetActive(false);
             if (tallyContainer) tallyContainer.SetActive(false);
-            if (tableContainer) tableContainer.SetActive(false);
+            if (lookAndCountContainer) lookAndCountContainer.SetActive(false);
 
-            // --- UPDATED: Check if they selected a specific mode! ---
-            int targetMode = currentQuestion.preferredMode;
-            if (targetMode == -1) targetMode = Random.Range(0, 4); // If "Random" was chosen, roll the dice!
+            if (targetMode == 0 && graphManager != null) { barGraphContainer.SetActive(true); graphManager.GenerateGraph(currentQuestion.dataValues, activeCategories); }
+            else if (targetMode == 1 && pieManager != null) { pieChartContainer.SetActive(true); pieManager.GeneratePieChart(currentQuestion.dataValues, activeCategories, currentQuestion.targetIndex); }
+            else if (targetMode == 2 && tallyManager != null) { tallyContainer.SetActive(true); tallyManager.GenerateTallyMarks(currentQuestion.dataValues, activeCategories); }
+            else if (targetMode == 3)
+            {
+                if (lookAndCountContainer != null) lookAndCountContainer.SetActive(true);
+                if (lookAndCountImageUI != null && currentQuestion.questionImage != null)
+                {
+                    lookAndCountImageUI.sprite = currentQuestion.questionImage;
+                }
+            }
 
-            if (targetMode == 0 && graphManager != null) { barGraphContainer.SetActive(true); graphManager.GenerateGraph(currentQuestion.dataValues); }
-            else if (targetMode == 1 && pieManager != null) { pieChartContainer.SetActive(true); pieManager.GeneratePieChart(currentQuestion.dataValues); }
-            else if (targetMode == 2 && tallyManager != null) { tallyContainer.SetActive(true); tallyManager.GenerateTallyMarks(currentQuestion.dataValues); }
-            else if (targetMode == 3 && tableManager != null) { tableContainer.SetActive(true); tableManager.GenerateTable(currentQuestion.dataValues); }
+            if (clipboardRowPrefab != null && clipboardListContainer != null)
+            {
+                foreach (Transform child in clipboardListContainer) Destroy(child.gameObject);
+
+                for (int i = 0; i < currentQuestion.dataValues.Count; i++)
+                {
+                    GameObject newRow = Instantiate(clipboardRowPrefab, clipboardListContainer);
+
+                    TextMeshProUGUI nameText = newRow.transform.Find("Item_Name")?.GetComponent<TextMeshProUGUI>();
+                    TextMeshProUGUI valueText = newRow.transform.Find("Number_Box/Item_Value")?.GetComponent<TextMeshProUGUI>();
+
+                    if (nameText != null) nameText.text = (i < activeCategories.Count) ? activeCategories[i] : "Item";
+
+                    if (valueText != null)
+                    {
+                        string rawValueString = currentQuestion.dataValues[i].ToString();
+
+                        if (i == currentQuestion.targetIndex)
+                        {
+                            valueText.text = "?";
+                            valueText.color = Color.red;
+                        }
+                        else
+                        {
+                            valueText.color = new Color(0.2f, 0.1f, 0.05f);
+
+                            if (targetMode == 1)
+                            {
+                                float total = 0;
+                                foreach (int val in currentQuestion.dataValues) total += val;
+                                float percentage = ((float)currentQuestion.dataValues[i] / total) * 100f;
+                                valueText.text = Mathf.RoundToInt(percentage) + "%";
+                            }
+                            else
+                            {
+                                valueText.text = rawValueString;
+                            }
+                        }
+                    }
+                }
+            }
 
             if (feedbackText != null) feedbackText.text = "Warming up scanner...";
             Invoke("TurnOnScanner", 1.5f);
@@ -249,57 +349,99 @@ namespace Eduzo.Games.DataHandling
 
         private void TurnOnScanner()
         {
-            if (qrScanner != null)
-            {
-                qrScanner.Reset();
-                qrScanner.StartWork();
-                if (feedbackText != null) feedbackText.text = "Scan your answer...";
-            }
+            if (!isPracticeMode) isTimerRunning = true;
+            if (qrScanner != null) { qrScanner.Reset(); qrScanner.StartWork(); if (feedbackText != null) feedbackText.text = "Scan your answer..."; }
         }
 
         public void OnFlashcardScanned(string scannedData)
         {
-            string cleanData = scannedData.Trim();
+            inputBuffer += scannedData.Trim();
+            if (feedbackText != null) { feedbackText.color = Color.white; feedbackText.text = "Scanned: " + inputBuffer + "..."; }
 
-            if (cleanData == expectedAnswer)
+            if (inputBuffer.Length >= expectedAnswer.Length)
             {
-                if (correctSound != null) correctSound.Play();
-                if (feedbackText != null) { feedbackText.color = Color.green; feedbackText.text = "CORRECT! Great job!"; }
-                if (qrScanner != null) qrScanner.StopWork();
-                Invoke("StartTestQuestion", 3f);
-            }
-            else
-            {
-                if (wrongSound != null) wrongSound.Play();
-                if (feedbackText != null) { feedbackText.color = Color.red; feedbackText.text = "Oops! You scanned " + cleanData + ". Try again!"; }
-                if (qrScanner != null) qrScanner.Reset();
-
-                if (!isPracticeMode)
+                if (inputBuffer == expectedAnswer)
                 {
-                    currentLives--;
-                    if (currentLives >= 0 && currentLives < hearts.Length) hearts[currentLives].SetActive(false);
-                    if (currentLives <= 0) TriggerGameOver();
+                    if (correctSound != null) correctSound.Play();
+                    if (feedbackText != null) { feedbackText.color = Color.green; feedbackText.text = "CORRECT! Great job!"; }
+                    if (qrScanner != null) qrScanner.StopWork();
+                    isTimerRunning = false;
+
+                    // --- NEW: Remove this question from the tracker because they got it right! ---
+                    if (unaskedQuestions.Contains(currentQuestionBankIndex))
+                    {
+                        unaskedQuestions.Remove(currentQuestionBankIndex);
+                    }
+
+                    Invoke("StartTestQuestion", 3f);
+                }
+                else
+                {
+                    if (wrongSound != null) wrongSound.Play();
+                    if (feedbackText != null) { feedbackText.color = Color.red; feedbackText.text = "Oops! You scanned " + inputBuffer + ". Try again!"; }
+                    inputBuffer = "";
+                    if (qrScanner != null) qrScanner.Reset();
+
+                    if (!isPracticeMode)
+                    {
+                        currentLives--;
+
+                        if (currentLives >= 0 && currentLives < hearts.Length && hearts[currentLives] != null)
+                        {
+                            hearts[currentLives].SetActive(false);
+                        }
+
+                        if (currentLives <= 0)
+                        {
+                            TriggerGameOver();
+                        }
+                    }
                 }
             }
+            else { if (qrScanner != null) qrScanner.Reset(); }
         }
 
         private void TriggerGameOver()
         {
             isTimerRunning = false;
             if (backgroundMusic != null) backgroundMusic.Stop();
-            if (normalTick != null) normalTick.Stop();
-            if (fastTick != null) fastTick.Stop();
             if (gameOverSound != null) gameOverSound.Play();
-
-            if (timerIcon != null)
-            {
-                timerIcon.anchoredPosition = originalTimerPos;
-                timerIcon.localScale = originalTimerScale;
-            }
             if (qrScanner != null) qrScanner.StopWork();
-
             if (gameScreen != null) gameScreen.SetActive(false);
             if (gameOverScreen != null) gameOverScreen.SetActive(true);
+        }
+
+        // --- NEW: Methods to trigger the end-game screens ---
+        private void TriggerPracticeComplete()
+        {
+            isTimerRunning = false;
+            if (qrScanner != null) qrScanner.StopWork();
+            if (gameScreen != null) gameScreen.SetActive(false);
+            if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(true);
+        }
+
+        private void TriggerScoreScreen()
+        {
+            isTimerRunning = false;
+            if (qrScanner != null) qrScanner.StopWork();
+            if (gameScreen != null) gameScreen.SetActive(false);
+            if (scoreScreen != null) scoreScreen.SetActive(true);
+        }
+
+        public void OpenOptionsMenu()
+        {
+            if (buttonSelect != null) buttonSelect.Play();
+            isTimerRunning = false;
+            if (qrScanner != null) qrScanner.StopWork();
+            if (optionsMenuScreen != null) optionsMenuScreen.SetActive(true);
+        }
+
+        public void CloseOptionsMenu()
+        {
+            if (buttonSelect != null) buttonSelect.Play();
+            if (!isPracticeMode) isTimerRunning = true;
+            if (qrScanner != null) qrScanner.StartWork();
+            if (optionsMenuScreen != null) optionsMenuScreen.SetActive(false);
         }
     }
 }
