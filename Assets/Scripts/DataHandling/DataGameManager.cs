@@ -1,9 +1,20 @@
 using UnityEngine;
 using TMPro;
 using System.Collections.Generic;
+using System.Collections;
 
 namespace Eduzo.Games.DataHandling
 {
+    [System.Serializable]
+    public class QuestionResult
+    {
+        public string questionText;
+        public string correctAnswer;
+        public string userResponse;
+        public bool isCorrect;
+        public float responseTime;
+    }
+
     [System.Serializable]
     public class QuestionData
     {
@@ -23,6 +34,10 @@ namespace Eduzo.Games.DataHandling
         public int forceGameMode = 0;
         public List<int> debugDataValues = new List<int> { 35, 15, 50 };
 
+        [Header("Transitions")]
+        public CanvasGroup fadeGroup;
+        public float fadeSpeed = 1.5f;
+
         [Header("Clipboard UI")]
         public GameObject clipboardRowPrefab;
         public Transform clipboardListContainer;
@@ -34,8 +49,8 @@ namespace Eduzo.Games.DataHandling
         public GameObject gameScreen;
         public GameObject gameOverScreen;
         public GameObject optionsMenuScreen;
-        public GameObject practiceCompleteScreen; // <-- NEW!
-        public GameObject scoreScreen;            // <-- NEW!
+        public GameObject practiceCompleteScreen;
+        public GameObject scoreScreen;
 
         [Header("Player Data UI")]
         public TMP_InputField playerNameInput;
@@ -47,6 +62,9 @@ namespace Eduzo.Games.DataHandling
         public RectTransform timerIcon;
         public GameObject[] hearts;
 
+        [Header("Score Screen UI")]
+        public TextMeshProUGUI scoreSummaryText;
+
         [Header("Audio Sources")]
         public AudioSource correctSound;
         public AudioSource wrongSound;
@@ -55,6 +73,23 @@ namespace Eduzo.Games.DataHandling
         public AudioSource buttonSelect;
         public AudioSource backgroundMusic;
         public AudioSource gameOverSound;
+
+        [Header("VFX Setup")]
+        public Transform vfxSpawnPoint;
+        public Transform secondaryVfxSpawnPoint;
+        public float vfxScale = 4f;
+        public float tertiaryVfxScale = 2f;
+        public float tertiaryOffset = 100f;
+
+        [Header("Correct VFX")]
+        public GameObject correctVfxPrefab;
+        public GameObject secondaryCorrectVfxPrefab;
+        public GameObject[] tertiaryCorrectVfxPrefabs;
+
+        [Header("Wrong VFX")]
+        public GameObject wrongVfxPrefab;
+        public GameObject secondaryWrongVfxPrefab;
+        public GameObject[] tertiaryWrongVfxPrefabs;
 
         [Header("System References")]
         public BarGraphManager graphManager;
@@ -76,11 +111,18 @@ namespace Eduzo.Games.DataHandling
         [Header("Question Bank")]
         public List<QuestionData> questionBank;
         private string expectedAnswer = "";
-        private string inputBuffer = "";
 
-        // --- NEW: Tracking Progress ---
+        [HideInInspector] public string inputBuffer = "";
+
         private List<int> unaskedQuestions = new List<int>();
         private int currentQuestionBankIndex = -1;
+
+        private List<QuestionResult> sessionResults = new List<QuestionResult>();
+        private float gameStartTime;
+        private float currentQuestionStartTime;
+
+        private bool isProcessingScan = false;
+        private float lastScanTime = 0f;
 
         private List<string> defaultCategoryNames = new List<string> { "Oranges", "Apples", "Grapes", "Bananas", "Mangoes" };
 
@@ -102,6 +144,12 @@ namespace Eduzo.Games.DataHandling
 
         void Start()
         {
+            if (fadeGroup != null)
+            {
+                fadeGroup.alpha = 0f;
+                fadeGroup.blocksRaycasts = false;
+            }
+
             if (timerIcon != null)
             {
                 originalTimerPos = timerIcon.anchoredPosition;
@@ -136,9 +184,11 @@ namespace Eduzo.Games.DataHandling
 
                 isPracticeMode = true;
 
-                // Populate the tracker for debug mode
                 unaskedQuestions.Clear();
                 for (int i = 0; i < questionBank.Count; i++) unaskedQuestions.Add(i);
+
+                sessionResults.Clear();
+                gameStartTime = Time.time;
 
                 StartTestQuestion();
                 return;
@@ -214,12 +264,14 @@ namespace Eduzo.Games.DataHandling
                 currentPlayerName = playerNameInput.text;
             }
 
-            // --- NEW: Setup the question tracker so it knows how many questions to ask! ---
             unaskedQuestions.Clear();
             for (int i = 0; i < questionBank.Count; i++)
             {
                 unaskedQuestions.Add(i);
             }
+
+            sessionResults.Clear();
+            gameStartTime = Time.time;
 
             if (isPracticeMode)
             {
@@ -241,6 +293,8 @@ namespace Eduzo.Games.DataHandling
                 isFastTicking = false;
 
                 if (timerContainer != null) timerContainer.SetActive(true);
+                if (timerText != null) timerText.text = currentTimerValue.ToString();
+
                 currentLives = 3;
                 foreach (var heart in hearts) if (heart != null) heart.SetActive(true);
             }
@@ -253,21 +307,22 @@ namespace Eduzo.Games.DataHandling
 
         public void StartTestQuestion()
         {
-            // --- NEW: Did we finish all the questions? ---
             if (unaskedQuestions.Count == 0)
             {
                 if (isPracticeMode) TriggerPracticeComplete();
-                else TriggerScoreScreen(); // In test mode, we go to the score screen!
+                else TriggerScoreScreen();
                 return;
             }
 
-            // Grab a random question from the REMAINING unasked questions
+            currentQuestionStartTime = Time.time;
+
             int randomListIndex = Random.Range(0, unaskedQuestions.Count);
             currentQuestionBankIndex = unaskedQuestions[randomListIndex];
             QuestionData currentQuestion = questionBank[currentQuestionBankIndex];
 
             expectedAnswer = currentQuestion.correctAnswer;
-            inputBuffer = "";
+
+            ClearScannedAnswer();
 
             int targetMode = currentQuestion.preferredMode;
             if (targetMode == -1) targetMode = Random.Range(0, 4);
@@ -343,77 +398,238 @@ namespace Eduzo.Games.DataHandling
                 }
             }
 
-            if (feedbackText != null) feedbackText.text = "Warming up scanner...";
+            if (feedbackText != null) { feedbackText.text = ""; }
             Invoke("TurnOnScanner", 1.5f);
         }
 
         private void TurnOnScanner()
         {
+            isProcessingScan = false;
             if (!isPracticeMode) isTimerRunning = true;
-            if (qrScanner != null) { qrScanner.Reset(); qrScanner.StartWork(); if (feedbackText != null) feedbackText.text = "Scan your answer..."; }
+
+            if (qrScanner != null) { qrScanner.Reset(); qrScanner.StartWork(); if (feedbackText != null) feedbackText.text = ""; }
         }
 
         public void OnFlashcardScanned(string scannedData)
         {
-            inputBuffer += scannedData.Trim();
-            if (feedbackText != null) { feedbackText.color = Color.white; feedbackText.text = "Scanned: " + inputBuffer + "..."; }
+            if (isProcessingScan) return;
 
-            if (inputBuffer.Length >= expectedAnswer.Length)
+            if (Time.time - lastScanTime < 0.5f) return;
+
+            lastScanTime = Time.time;
+
+            if (inputBuffer.Length < 10)
             {
-                if (inputBuffer == expectedAnswer)
+                inputBuffer += scannedData.Trim();
+
+                if (feedbackText != null) { feedbackText.color = Color.yellow; feedbackText.text = inputBuffer; }
+
+                if (buttonSelect != null) buttonSelect.Play();
+            }
+
+            if (qrScanner != null)
+            {
+                qrScanner.Reset();
+                qrScanner.StartWork();
+            }
+        }
+
+        public void SubmitScannedAnswer()
+        {
+            if (string.IsNullOrEmpty(inputBuffer)) return;
+
+            if (inputBuffer.Length < expectedAnswer.Length)
+            {
+                isProcessingScan = false;
+                if (qrScanner != null) qrScanner.Reset();
+                return;
+            }
+
+            isProcessingScan = true;
+
+            QuestionResult result = new QuestionResult();
+            result.questionText = questionBank[currentQuestionBankIndex].questionText;
+            result.correctAnswer = expectedAnswer;
+            result.userResponse = inputBuffer;
+            result.isCorrect = (inputBuffer == expectedAnswer);
+            result.responseTime = Time.time - currentQuestionStartTime;
+            sessionResults.Add(result);
+
+            if (result.isCorrect)
+            {
+                if (correctSound != null) correctSound.Play();
+                if (feedbackText != null) { feedbackText.color = Color.green; feedbackText.text = "CORRECT!"; }
+                if (qrScanner != null) qrScanner.StopWork();
+                isTimerRunning = false;
+
+                PlayVFX(correctVfxPrefab, secondaryCorrectVfxPrefab, tertiaryCorrectVfxPrefabs);
+
+                if (unaskedQuestions.Contains(currentQuestionBankIndex))
                 {
-                    if (correctSound != null) correctSound.Play();
-                    if (feedbackText != null) { feedbackText.color = Color.green; feedbackText.text = "CORRECT! Great job!"; }
-                    if (qrScanner != null) qrScanner.StopWork();
-                    isTimerRunning = false;
-
-                    // --- NEW: Remove this question from the tracker because they got it right! ---
-                    if (unaskedQuestions.Contains(currentQuestionBankIndex))
-                    {
-                        unaskedQuestions.Remove(currentQuestionBankIndex);
-                    }
-
-                    Invoke("StartTestQuestion", 3f);
+                    unaskedQuestions.Remove(currentQuestionBankIndex);
                 }
-                else
+
+                StartCoroutine(TransitionToNextQuestion());
+            }
+            else
+            {
+                if (wrongSound != null) wrongSound.Play();
+                if (feedbackText != null) { feedbackText.color = Color.red; feedbackText.text = "Oops!"; }
+
+                PlayVFX(wrongVfxPrefab, secondaryWrongVfxPrefab, tertiaryWrongVfxPrefabs);
+
+                if (!isPracticeMode)
                 {
-                    if (wrongSound != null) wrongSound.Play();
-                    if (feedbackText != null) { feedbackText.color = Color.red; feedbackText.text = "Oops! You scanned " + inputBuffer + ". Try again!"; }
-                    inputBuffer = "";
-                    if (qrScanner != null) qrScanner.Reset();
+                    currentLives--;
 
-                    if (!isPracticeMode)
+                    if (currentLives >= 0 && currentLives < hearts.Length && hearts[currentLives] != null)
                     {
-                        currentLives--;
-
-                        if (currentLives >= 0 && currentLives < hearts.Length && hearts[currentLives] != null)
-                        {
-                            hearts[currentLives].SetActive(false);
-                        }
-
-                        if (currentLives <= 0)
-                        {
-                            TriggerGameOver();
-                        }
+                        hearts[currentLives].SetActive(false);
                     }
+
+                    if (currentLives <= 0)
+                    {
+                        TriggerGameOver();
+                        return;
+                    }
+                }
+
+                Invoke("ResetScannerCooldown", 2f);
+            }
+        }
+
+        private void PlayVFX(GameObject primary, GameObject secondary, GameObject[] tertiaries)
+        {
+            if (primary != null && vfxSpawnPoint != null)
+            {
+                GameObject pVfx = Instantiate(primary, vfxSpawnPoint.position, Quaternion.identity);
+                pVfx.transform.SetParent(vfxSpawnPoint, true);
+                pVfx.transform.localScale = new Vector3(vfxScale, vfxScale, vfxScale);
+                Destroy(pVfx, 3f);
+            }
+
+            if (secondary != null && secondaryVfxSpawnPoint != null)
+            {
+                GameObject sVfx = Instantiate(secondary, secondaryVfxSpawnPoint.position, Quaternion.identity);
+                sVfx.transform.SetParent(secondaryVfxSpawnPoint, true);
+                sVfx.transform.localScale = new Vector3(vfxScale, vfxScale, vfxScale);
+                Destroy(sVfx, 3f);
+            }
+
+            if (tertiaries != null && tertiaries.Length > 0 && vfxSpawnPoint != null)
+            {
+                GameObject randomTertiary = tertiaries[Random.Range(0, tertiaries.Length)];
+                if (randomTertiary != null)
+                {
+                    Vector3 offset = new Vector3(Random.Range(-tertiaryOffset, tertiaryOffset), Random.Range(-tertiaryOffset, tertiaryOffset), 0f);
+
+                    GameObject tVfx = Instantiate(randomTertiary, vfxSpawnPoint.position + offset, Quaternion.identity);
+                    tVfx.transform.SetParent(vfxSpawnPoint, true);
+                    tVfx.transform.localScale = new Vector3(tertiaryVfxScale, tertiaryVfxScale, tertiaryVfxScale);
+                    Destroy(tVfx, 3f);
                 }
             }
-            else { if (qrScanner != null) qrScanner.Reset(); }
+        }
+
+        public void ClearScannedAnswer()
+        {
+            if (buttonSelect != null) buttonSelect.Play();
+
+            inputBuffer = "";
+            isProcessingScan = false;
+
+            if (feedbackText != null) { feedbackText.color = Color.yellow; feedbackText.text = ""; }
+
+            if (qrScanner != null) qrScanner.Reset();
+        }
+
+        private void ResetScannerCooldown()
+        {
+            ClearScannedAnswer();
+        }
+
+        private IEnumerator TransitionToNextQuestion()
+        {
+            yield return new WaitForSeconds(1.5f);
+
+            if (fadeGroup != null)
+            {
+                fadeGroup.blocksRaycasts = true;
+                float alpha = 0f;
+                while (alpha < 1f)
+                {
+                    alpha += Time.deltaTime * fadeSpeed;
+                    fadeGroup.alpha = Mathf.Clamp01(alpha);
+                    yield return null;
+                }
+            }
+
+            StartTestQuestion();
+
+            if (fadeGroup != null)
+            {
+                float alpha = 1f;
+                while (alpha > 0f)
+                {
+                    alpha -= Time.deltaTime * fadeSpeed;
+                    fadeGroup.alpha = Mathf.Clamp01(alpha);
+                    yield return null;
+                }
+                fadeGroup.blocksRaycasts = false;
+            }
         }
 
         private void TriggerGameOver()
         {
+            if (fadeGroup != null) { fadeGroup.alpha = 0f; fadeGroup.blocksRaycasts = false; }
             isTimerRunning = false;
             if (backgroundMusic != null) backgroundMusic.Stop();
             if (gameOverSound != null) gameOverSound.Play();
             if (qrScanner != null) qrScanner.StopWork();
             if (gameScreen != null) gameScreen.SetActive(false);
             if (gameOverScreen != null) gameOverScreen.SetActive(true);
+
+            StartCoroutine(GameOverToScoreRoutine());
         }
 
-        // --- NEW: Methods to trigger the end-game screens ---
+        private IEnumerator GameOverToScoreRoutine()
+        {
+            yield return new WaitForSeconds(2f);
+
+            if (fadeGroup != null)
+            {
+                fadeGroup.blocksRaycasts = true;
+                float alpha = 0f;
+                while (alpha < 1f)
+                {
+                    alpha += Time.deltaTime * fadeSpeed;
+                    fadeGroup.alpha = Mathf.Clamp01(alpha);
+                    yield return null;
+                }
+            }
+
+            if (gameOverScreen != null) gameOverScreen.SetActive(false);
+
+            GenerateScoreSummary();
+
+            if (scoreScreen != null) scoreScreen.SetActive(true);
+
+            if (fadeGroup != null)
+            {
+                float alpha = 1f;
+                while (alpha > 0f)
+                {
+                    alpha -= Time.deltaTime * fadeSpeed;
+                    fadeGroup.alpha = Mathf.Clamp01(alpha);
+                    yield return null;
+                }
+                fadeGroup.blocksRaycasts = false;
+            }
+        }
+
         private void TriggerPracticeComplete()
         {
+            if (fadeGroup != null) { fadeGroup.alpha = 0f; fadeGroup.blocksRaycasts = false; }
             isTimerRunning = false;
             if (qrScanner != null) qrScanner.StopWork();
             if (gameScreen != null) gameScreen.SetActive(false);
@@ -422,10 +638,56 @@ namespace Eduzo.Games.DataHandling
 
         private void TriggerScoreScreen()
         {
+            if (fadeGroup != null) { fadeGroup.alpha = 0f; fadeGroup.blocksRaycasts = false; }
             isTimerRunning = false;
             if (qrScanner != null) qrScanner.StopWork();
             if (gameScreen != null) gameScreen.SetActive(false);
+
+            GenerateScoreSummary();
+
             if (scoreScreen != null) scoreScreen.SetActive(true);
+        }
+
+        private void GenerateScoreSummary()
+        {
+            if (scoreSummaryText == null) return;
+
+            int correctCount = 0;
+            int wrongCount = 0;
+
+            foreach (var res in sessionResults)
+            {
+                if (res.isCorrect) correctCount++;
+                else wrongCount++;
+            }
+
+            int totalResponses = sessionResults.Count;
+            int score = totalResponses > 0 ? Mathf.RoundToInt(((float)correctCount / totalResponses) * 100f) : 0;
+            float activeTime = Time.time - gameStartTime;
+
+            string summary = "========== GAME SCORE SUMMARY ==========\n";
+            summary += $"Score: {score}%\n";
+            summary += $"Active Time: {activeTime:F1}s\n";
+            summary += "Idle Time: 0s\n\n";
+            summary += $"Total Responses: {totalResponses}\n";
+            summary += $"Correct Answers: {correctCount}\n";
+            summary += $"Wrong Answers: {wrongCount}\n\n";
+            summary += "========== QUESTION BREAKDOWN ==========\n\n";
+
+            for (int i = 0; i < sessionResults.Count; i++)
+            {
+                var res = sessionResults[i];
+                string simpleQuestion = res.questionText.Replace("How many ", "").Replace(" are there?", "");
+
+                summary += $"--- Question {i + 1} ---\n";
+                summary += $"Item: {simpleQuestion}\n";
+                summary += $"Correct Answer: {res.correctAnswer}\n";
+                summary += $"User's Response: {res.userResponse}\n";
+                summary += $"Result: {(res.isCorrect ? "CORRECT" : "INCORRECT")}\n";
+                summary += $"Response Time: {res.responseTime:F1}s\n\n";
+            }
+
+            scoreSummaryText.text = summary;
         }
 
         public void OpenOptionsMenu()
@@ -442,6 +704,77 @@ namespace Eduzo.Games.DataHandling
             if (!isPracticeMode) isTimerRunning = true;
             if (qrScanner != null) qrScanner.StartWork();
             if (optionsMenuScreen != null) optionsMenuScreen.SetActive(false);
+        }
+
+        public void ReplayGame()
+        {
+            if (buttonSelect != null) buttonSelect.Play();
+
+            StopAllCoroutines();
+            if (fadeGroup != null) { fadeGroup.alpha = 0f; fadeGroup.blocksRaycasts = false; }
+
+            unaskedQuestions.Clear();
+            for (int i = 0; i < questionBank.Count; i++)
+            {
+                unaskedQuestions.Add(i);
+            }
+
+            if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(false);
+            if (scoreScreen != null) scoreScreen.SetActive(false);
+            if (gameOverScreen != null) gameOverScreen.SetActive(false);
+            if (gameScreen != null) gameScreen.SetActive(true);
+
+            sessionResults.Clear();
+            gameStartTime = Time.time;
+
+            if (!isPracticeMode)
+            {
+                timeRemaining = currentTimerValue;
+                isFastTicking = false;
+                if (timerContainer != null) timerContainer.SetActive(true);
+
+                if (timerText != null) timerText.text = currentTimerValue.ToString();
+
+                currentLives = 3;
+                foreach (var heart in hearts) if (heart != null) heart.SetActive(true);
+            }
+
+            StartTestQuestion();
+        }
+
+        public void ReturnToHome()
+        {
+            if (buttonSelect != null) buttonSelect.Play();
+
+            StopAllCoroutines();
+            if (fadeGroup != null) { fadeGroup.alpha = 0f; fadeGroup.blocksRaycasts = false; }
+
+            isTimerRunning = false;
+            if (qrScanner != null) qrScanner.StopWork();
+
+            if (gameScreen != null) gameScreen.SetActive(false);
+            if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(false);
+            if (scoreScreen != null) scoreScreen.SetActive(false);
+            if (gameOverScreen != null) gameOverScreen.SetActive(false);
+            if (optionsMenuScreen != null) optionsMenuScreen.SetActive(false);
+            if (playerDataScreen != null) playerDataScreen.SetActive(false);
+            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
+
+            if (formScreen != null) formScreen.SetActive(true);
+        }
+
+        // --- NEW: THE METHOD TO QUIT THE GAME ---
+        public void QuitGame()
+        {
+            if (buttonSelect != null) buttonSelect.Play();
+
+            Debug.Log("Game is quitting...");
+
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+                Application.Quit();
+#endif
         }
     }
 }
