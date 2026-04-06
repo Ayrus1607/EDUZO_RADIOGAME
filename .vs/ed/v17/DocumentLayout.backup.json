@@ -3,8 +3,8 @@
   "WorkspaceRootPath": "D:\\2026\\ed\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}|Assembly-CSharp.csproj|d:\\2026\\ed\\assets\\scripts\\datahandling\\datagamemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\datahandling\\datagamemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}|Assembly-CSharp.csproj|d:\\2026\\ed\\assets\\scripts\\datahandling\\bargraphmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\datahandling\\bargraphmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -19,14 +19,14 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "DataGameManager.cs",
-              "DocumentMoniker": "D:\\2026\\ed\\Assets\\Scripts\\DataHandling\\DataGameManager.cs",
-              "RelativeDocumentMoniker": "Assets\\Scripts\\DataHandling\\DataGameManager.cs",
-              "ToolTip": "D:\\2026\\ed\\Assets\\Scripts\\DataHandling\\DataGameManager.cs",
-              "RelativeToolTip": "Assets\\Scripts\\DataHandling\\DataGameManager.cs",
-              "ViewState": "AgIAAOgCAAAAAAAAAAAYwAIDAAABAAAAAAAAAA==",
+              "Title": "BarGraphManager.cs",
+              "DocumentMoniker": "D:\\2026\\ed\\Assets\\Scripts\\DataHandling\\BarGraphManager.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\DataHandling\\BarGraphManager.cs",
+              "ToolTip": "D:\\2026\\ed\\Assets\\Scripts\\DataHandling\\BarGraphManager.cs",
+              "RelativeToolTip": "Assets\\Scripts\\DataHandling\\BarGraphManager.cs",
+              "ViewState": "AgIAAGYAAAAAAAAAAAAAwIkAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-02T07:44:24.772Z",
+              "WhenOpened": "2026-04-05T17:58:44.849Z",
               "EditorCaption": ""
             }
           ]

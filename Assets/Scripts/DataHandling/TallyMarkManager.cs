@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 
@@ -14,11 +15,33 @@ namespace Eduzo.Games.DataHandling
         [Header("Container")]
         public Transform tallyContainer; // The chalkboard area that holds all the rows
 
-        // --- UPDATED: Now it strictly uses the custom names from the GameManager ---
         public void GenerateTallyMarks(List<int> data, List<string> categoryNames)
         {
             // 1. Clear out any old rows
             foreach (Transform child in tallyContainer) Destroy(child.gameObject);
+
+            if (data == null || data.Count == 0) return;
+
+            // --- THE FIX: DYNAMIC HEIGHT CALCULATION ---
+            // Measure the container's height
+            RectTransform containerRect = tallyContainer.GetComponent<RectTransform>();
+            float totalHeight = containerRect != null ? containerRect.rect.height : 400f; // Fallback
+            if (totalHeight <= 0) totalHeight = 400f;
+
+            // Subtract any spacing Unity is adding automatically
+            VerticalLayoutGroup layoutGroup = tallyContainer.GetComponent<VerticalLayoutGroup>();
+            if (layoutGroup != null)
+            {
+                float padding = layoutGroup.padding.top + layoutGroup.padding.bottom;
+                float spacing = layoutGroup.spacing * (data.Count - 1);
+                totalHeight = totalHeight - padding - spacing;
+            }
+
+            // Divide the usable height by the number of items
+            float rowHeight = totalHeight / data.Count;
+
+            // Put a cap so if there are only 2 items, the row doesn't become comically massive
+            if (rowHeight > 100f) rowHeight = 100f;
 
             // 2. Loop through the numbers and spawn the rows
             for (int i = 0; i < data.Count; i++)
@@ -26,11 +49,28 @@ namespace Eduzo.Games.DataHandling
                 // Spawn the Row 
                 GameObject newRow = Instantiate(tallyRowPrefab, tallyContainer);
 
-                // Set the Category Text using your custom names!
+                // --- APPLY THE HEIGHT MATERIALLY ---
+                RectTransform rowRt = newRow.GetComponent<RectTransform>();
+                if (rowRt != null)
+                {
+                    rowRt.sizeDelta = new Vector2(rowRt.sizeDelta.x, rowHeight);
+                }
+
+                // If your prefab uses a LayoutElement to dictate height, update that too
+                LayoutElement layoutElement = newRow.GetComponent<LayoutElement>();
+                if (layoutElement != null)
+                {
+                    layoutElement.preferredHeight = rowHeight;
+                }
+
+                // Set the Category Text and turn on Auto-Size!
                 TextMeshProUGUI rowText = newRow.transform.GetComponentInChildren<TextMeshProUGUI>();
                 if (rowText != null)
                 {
                     rowText.text = (categoryNames != null && i < categoryNames.Count) ? categoryNames[i] : "Item " + (i + 1);
+                    rowText.enableAutoSizing = true;
+                    rowText.fontSizeMin = 10;
+                    rowText.fontSizeMax = 36;
                 }
 
                 // Find the spawn area on the right side of the row

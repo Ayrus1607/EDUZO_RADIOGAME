@@ -32,7 +32,7 @@ namespace Eduzo.Games.DataHandling
         [Header("Developer Debug Mode")]
         public bool quickStartDebug = false;
         public int forceGameMode = 0;
-        public List<int> debugDataValues = new List<int> { 35, 15, 50 };
+        public List<int> debugDataValues = new List<int> { 2, 12, 14, 14, 14, 14, 14 };
 
         [Header("Transitions")]
         public CanvasGroup fadeGroup;
@@ -110,9 +110,16 @@ namespace Eduzo.Games.DataHandling
 
         [Header("Question Bank")]
         public List<QuestionData> questionBank;
-        private string expectedAnswer = "";
 
+        // --- GAMEPLAY LOGIC VARIABLES ---
+        private QuestionData currentQuestion;
+        private int activeItemIndex = 0;
         [HideInInspector] public string inputBuffer = "";
+        private bool isProcessingScan = false;
+
+        // --- SMART SCANNING VARIABLES ---
+        private float lastScanTime = 0f;
+        private string lastScannedDigit = "";
 
         private List<int> unaskedQuestions = new List<int>();
         private int currentQuestionBankIndex = -1;
@@ -121,10 +128,7 @@ namespace Eduzo.Games.DataHandling
         private float gameStartTime;
         private float currentQuestionStartTime;
 
-        private bool isProcessingScan = false;
-        private float lastScanTime = 0f;
-
-        private List<string> defaultCategoryNames = new List<string> { "Oranges", "Apples", "Grapes", "Bananas", "Mangoes" };
+        private List<string> defaultCategoryNames = new List<string> { "Oranges", "Apples", "Grapes", "Bananas", "Mangoes", "Pears", "Kiwis", "Lemons" };
 
         [HideInInspector] public bool isPracticeMode = false;
         [HideInInspector] public string currentPlayerName = "";
@@ -172,24 +176,18 @@ namespace Eduzo.Games.DataHandling
                 {
                     QuestionData debugQ = new QuestionData();
                     debugQ.dataValues = debugDataValues;
+                    debugQ.categoryNames = new List<string> { "A", "B", "C", "D", "E", "F", "G", "H" };
                     debugQ.correctAnswer = debugDataValues[0].ToString();
                     debugQ.preferredMode = forceGameMode;
                     questionBank.Add(debugQ);
                 }
-                else
-                {
-                    questionBank[0].preferredMode = forceGameMode;
-                    questionBank[0].dataValues = debugDataValues;
-                }
 
                 isPracticeMode = true;
-
                 unaskedQuestions.Clear();
                 for (int i = 0; i < questionBank.Count; i++) unaskedQuestions.Add(i);
 
                 sessionResults.Clear();
                 gameStartTime = Time.time;
-
                 StartTestQuestion();
                 return;
             }
@@ -199,9 +197,6 @@ namespace Eduzo.Games.DataHandling
             if (playerDataScreen != null) playerDataScreen.SetActive(false);
             if (gameScreen != null) gameScreen.SetActive(false);
             if (gameOverScreen != null) gameOverScreen.SetActive(false);
-            if (optionsMenuScreen != null) optionsMenuScreen.SetActive(false);
-            if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(false);
-            if (scoreScreen != null) scoreScreen.SetActive(false);
         }
 
         void Update()
@@ -233,42 +228,13 @@ namespace Eduzo.Games.DataHandling
             }
         }
 
-        public void SelectPracticeMode()
-        {
-            if (buttonSelect != null) buttonSelect.Play();
-            isPracticeMode = true;
-
-            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
-            if (playerDataScreen != null) playerDataScreen.SetActive(true);
-
-            if (timerInput != null) timerInput.gameObject.SetActive(false);
-        }
-
-        public void SelectTestMode()
-        {
-            if (buttonSelect != null) buttonSelect.Play();
-            isPracticeMode = false;
-
-            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
-            if (playerDataScreen != null) playerDataScreen.SetActive(true);
-
-            if (timerInput != null) timerInput.gameObject.SetActive(true);
-        }
-
         public void StartGameFromPlayerData()
         {
             if (buttonSelect != null) buttonSelect.Play();
-
-            if (playerNameInput != null && !string.IsNullOrEmpty(playerNameInput.text))
-            {
-                currentPlayerName = playerNameInput.text;
-            }
+            if (playerNameInput != null && !string.IsNullOrEmpty(playerNameInput.text)) currentPlayerName = playerNameInput.text;
 
             unaskedQuestions.Clear();
-            for (int i = 0; i < questionBank.Count; i++)
-            {
-                unaskedQuestions.Add(i);
-            }
+            for (int i = 0; i < questionBank.Count; i++) unaskedQuestions.Add(i);
 
             sessionResults.Clear();
             gameStartTime = Time.time;
@@ -280,21 +246,13 @@ namespace Eduzo.Games.DataHandling
             }
             else
             {
-                if (timerInput != null && int.TryParse(timerInput.text, out int parsedTime))
-                {
-                    currentTimerValue = parsedTime;
-                }
-                else
-                {
-                    currentTimerValue = 60;
-                }
+                if (timerInput != null && int.TryParse(timerInput.text, out int parsedTime)) currentTimerValue = parsedTime;
+                else currentTimerValue = 60;
 
                 timeRemaining = currentTimerValue;
                 isFastTicking = false;
-
                 if (timerContainer != null) timerContainer.SetActive(true);
                 if (timerText != null) timerText.text = currentTimerValue.ToString();
-
                 currentLives = 3;
                 foreach (var heart in hearts) if (heart != null) heart.SetActive(true);
             }
@@ -315,14 +273,16 @@ namespace Eduzo.Games.DataHandling
             }
 
             currentQuestionStartTime = Time.time;
-
             int randomListIndex = Random.Range(0, unaskedQuestions.Count);
             currentQuestionBankIndex = unaskedQuestions[randomListIndex];
-            QuestionData currentQuestion = questionBank[currentQuestionBankIndex];
+            currentQuestion = questionBank[currentQuestionBankIndex];
 
-            expectedAnswer = currentQuestion.correctAnswer;
+            activeItemIndex = 0;
+            if (currentQuestion.preferredMode == 1) activeItemIndex = currentQuestion.targetIndex;
 
-            ClearScannedAnswer();
+            inputBuffer = "";
+            lastScannedDigit = ""; // Reset tracker
+            if (feedbackText != null) feedbackText.text = "";
 
             int targetMode = currentQuestion.preferredMode;
             if (targetMode == -1) targetMode = Random.Range(0, 4);
@@ -336,166 +296,226 @@ namespace Eduzo.Games.DataHandling
             }
 
             List<string> activeCategories = (currentQuestion.categoryNames != null && currentQuestion.categoryNames.Count > 0)
-                                            ? currentQuestion.categoryNames
-                                            : defaultCategoryNames;
+                                            ? currentQuestion.categoryNames : defaultCategoryNames;
+
+            int maxValue = 0;
+            foreach (int v in currentQuestion.dataValues) if (v > maxValue) maxValue = v;
+            int dynamicYRange = Mathf.CeilToInt(maxValue / 10f) * 10;
+            if (dynamicYRange == 0) dynamicYRange = 10;
 
             if (barGraphContainer) barGraphContainer.SetActive(false);
             if (pieChartContainer) pieChartContainer.SetActive(false);
             if (tallyContainer) tallyContainer.SetActive(false);
             if (lookAndCountContainer) lookAndCountContainer.SetActive(false);
 
-            if (targetMode == 0 && graphManager != null) { barGraphContainer.SetActive(true); graphManager.GenerateGraph(currentQuestion.dataValues, activeCategories); }
+            if (targetMode == 0 && graphManager != null) { barGraphContainer.SetActive(true); graphManager.GenerateGraph(currentQuestion.dataValues, activeCategories, dynamicYRange); }
             else if (targetMode == 1 && pieManager != null) { pieChartContainer.SetActive(true); pieManager.GeneratePieChart(currentQuestion.dataValues, activeCategories, currentQuestion.targetIndex); }
             else if (targetMode == 2 && tallyManager != null) { tallyContainer.SetActive(true); tallyManager.GenerateTallyMarks(currentQuestion.dataValues, activeCategories); }
             else if (targetMode == 3)
             {
                 if (lookAndCountContainer != null) lookAndCountContainer.SetActive(true);
-                if (lookAndCountImageUI != null && currentQuestion.questionImage != null)
-                {
-                    lookAndCountImageUI.sprite = currentQuestion.questionImage;
-                }
+                if (lookAndCountImageUI != null && currentQuestion.questionImage != null) lookAndCountImageUI.sprite = currentQuestion.questionImage;
             }
 
-            if (clipboardRowPrefab != null && clipboardListContainer != null)
+            RefreshClipboardList();
+            Invoke("TurnOnScanner", 1.5f);
+        }
+
+        private void RefreshClipboardList()
+        {
+            if (clipboardRowPrefab == null || clipboardListContainer == null) return;
+
+            foreach (Transform child in clipboardListContainer) Destroy(child.gameObject);
+
+            List<string> activeCategories = (currentQuestion.categoryNames != null && currentQuestion.categoryNames.Count > 0)
+                                            ? currentQuestion.categoryNames : defaultCategoryNames;
+
+            for (int i = 0; i < currentQuestion.dataValues.Count; i++)
             {
-                foreach (Transform child in clipboardListContainer) Destroy(child.gameObject);
+                GameObject newRow = Instantiate(clipboardRowPrefab, clipboardListContainer);
+                TextMeshProUGUI nameText = newRow.transform.Find("Item_Name")?.GetComponent<TextMeshProUGUI>();
+                TextMeshProUGUI valueText = newRow.transform.Find("Number_Box/Item_Value")?.GetComponent<TextMeshProUGUI>();
 
-                for (int i = 0; i < currentQuestion.dataValues.Count; i++)
+                if (nameText != null) nameText.text = (i < activeCategories.Count) ? activeCategories[i] : "Item";
+
+                if (valueText != null)
                 {
-                    GameObject newRow = Instantiate(clipboardRowPrefab, clipboardListContainer);
-
-                    TextMeshProUGUI nameText = newRow.transform.Find("Item_Name")?.GetComponent<TextMeshProUGUI>();
-                    TextMeshProUGUI valueText = newRow.transform.Find("Number_Box/Item_Value")?.GetComponent<TextMeshProUGUI>();
-
-                    if (nameText != null) nameText.text = (i < activeCategories.Count) ? activeCategories[i] : "Item";
-
-                    if (valueText != null)
+                    if (currentQuestion.preferredMode == 1)
                     {
-                        string rawValueString = currentQuestion.dataValues[i].ToString();
-
-                        if (i == currentQuestion.targetIndex)
+                        if (i == activeItemIndex)
                         {
-                            valueText.text = "?";
+                            valueText.text = string.IsNullOrEmpty(inputBuffer) ? "?" : inputBuffer;
                             valueText.color = Color.red;
                         }
                         else
                         {
+                            float total = 0; foreach (int val in currentQuestion.dataValues) total += val;
+                            float percentage = ((float)currentQuestion.dataValues[i] / total) * 100f;
+                            valueText.text = Mathf.RoundToInt(percentage) + "%";
                             valueText.color = new Color(0.2f, 0.1f, 0.05f);
-
-                            if (targetMode == 1)
-                            {
-                                float total = 0;
-                                foreach (int val in currentQuestion.dataValues) total += val;
-                                float percentage = ((float)currentQuestion.dataValues[i] / total) * 100f;
-                                valueText.text = Mathf.RoundToInt(percentage) + "%";
-                            }
-                            else
-                            {
-                                valueText.text = rawValueString;
-                            }
+                        }
+                    }
+                    else
+                    {
+                        if (i < activeItemIndex)
+                        {
+                            valueText.text = currentQuestion.dataValues[i].ToString();
+                            valueText.color = new Color(0.1f, 0.5f, 0.1f);
+                        }
+                        else if (i == activeItemIndex)
+                        {
+                            valueText.text = string.IsNullOrEmpty(inputBuffer) ? "?" : inputBuffer;
+                            valueText.color = Color.red;
+                        }
+                        else
+                        {
+                            valueText.text = "";
                         }
                     }
                 }
             }
-
-            if (feedbackText != null) { feedbackText.text = ""; }
-            Invoke("TurnOnScanner", 1.5f);
         }
 
         private void TurnOnScanner()
         {
             isProcessingScan = false;
+            lastScannedDigit = ""; // Reset tracker for the new row!
             if (!isPracticeMode) isTimerRunning = true;
-
-            if (qrScanner != null) { qrScanner.Reset(); qrScanner.StartWork(); if (feedbackText != null) feedbackText.text = ""; }
-        }
-
-        public void OnFlashcardScanned(string scannedData)
-        {
-            if (isProcessingScan) return;
-
-            if (Time.time - lastScanTime < 0.5f) return;
-
-            lastScanTime = Time.time;
-
-            if (inputBuffer.Length < 10)
-            {
-                inputBuffer += scannedData.Trim();
-
-                if (feedbackText != null) { feedbackText.color = Color.yellow; feedbackText.text = inputBuffer; }
-
-                if (buttonSelect != null) buttonSelect.Play();
-            }
 
             if (qrScanner != null)
             {
+                qrScanner.StopWork();
                 qrScanner.Reset();
                 qrScanner.StartWork();
+                if (feedbackText != null) feedbackText.text = "";
             }
+        }
+
+        // --- THE UNJAMMABLE SMART SCAN LOGIC ---
+        public void OnFlashcardScanned(string scannedData)
+        {
+            // CRITICAL FIX: ALWAYS clear the plugin cache the millisecond a scan fires
+            // This guarantees the camera never locks up, no matter what happens below.
+            if (qrScanner != null) qrScanner.Reset();
+
+            if (isProcessingScan) return;
+
+            scannedData = scannedData.Trim();
+
+            // SMART COOLDOWN: 
+            // If the camera reads the EXACT SAME digit super fast, ignore it for 1 second.
+            // But if you scan a '1' and then instantly hold up a '2', it accepts it instantly!
+            if (scannedData == lastScannedDigit && (Time.time - lastScanTime < 1.0f))
+            {
+                return;
+            }
+
+            // Accept the Scan!
+            lastScanTime = Time.time;
+            lastScannedDigit = scannedData;
+
+            inputBuffer += scannedData;
+
+            RefreshClipboardList();
+            if (buttonSelect != null) buttonSelect.Play();
+        }
+
+        public void ClearScannedAnswer()
+        {
+            if (buttonSelect != null) buttonSelect.Play();
+            inputBuffer = "";
+            lastScannedDigit = ""; // Reset the tracker!
+            RefreshClipboardList();
+
+            if (qrScanner != null) qrScanner.Reset();
         }
 
         public void SubmitScannedAnswer()
         {
             if (string.IsNullOrEmpty(inputBuffer)) return;
+            if (isProcessingScan) return;
 
-            if (inputBuffer.Length < expectedAnswer.Length)
-            {
-                isProcessingScan = false;
-                if (qrScanner != null) qrScanner.Reset();
-                return;
-            }
+            if (qrScanner != null) qrScanner.StopWork();
 
+            string targetAnswer = currentQuestion.dataValues[activeItemIndex].ToString();
+
+            if (inputBuffer == targetAnswer) HandleCorrectRow();
+            else HandleWrongRow();
+        }
+
+        private void HandleCorrectRow()
+        {
             isProcessingScan = true;
+            if (correctSound != null) correctSound.Play();
+            PlayVFX(correctVfxPrefab, secondaryCorrectVfxPrefab, tertiaryCorrectVfxPrefabs);
+
+            string catName = "Item";
+            if (currentQuestion.categoryNames != null && activeItemIndex < currentQuestion.categoryNames.Count)
+                catName = currentQuestion.categoryNames[activeItemIndex];
 
             QuestionResult result = new QuestionResult();
-            result.questionText = questionBank[currentQuestionBankIndex].questionText;
-            result.correctAnswer = expectedAnswer;
+            result.questionText = catName;
+            result.correctAnswer = currentQuestion.dataValues[activeItemIndex].ToString();
             result.userResponse = inputBuffer;
-            result.isCorrect = (inputBuffer == expectedAnswer);
+            result.isCorrect = true;
             result.responseTime = Time.time - currentQuestionStartTime;
             sessionResults.Add(result);
 
-            if (result.isCorrect)
+            inputBuffer = "";
+
+            if (currentQuestion.preferredMode == 1)
             {
-                if (correctSound != null) correctSound.Play();
-                if (feedbackText != null) { feedbackText.color = Color.green; feedbackText.text = "CORRECT!"; }
-                if (qrScanner != null) qrScanner.StopWork();
-                isTimerRunning = false;
-
-                PlayVFX(correctVfxPrefab, secondaryCorrectVfxPrefab, tertiaryCorrectVfxPrefabs);
-
-                if (unaskedQuestions.Contains(currentQuestionBankIndex))
-                {
-                    unaskedQuestions.Remove(currentQuestionBankIndex);
-                }
-
                 StartCoroutine(TransitionToNextQuestion());
             }
             else
             {
-                if (wrongSound != null) wrongSound.Play();
-                if (feedbackText != null) { feedbackText.color = Color.red; feedbackText.text = "Oops!"; }
-
-                PlayVFX(wrongVfxPrefab, secondaryWrongVfxPrefab, tertiaryWrongVfxPrefabs);
-
-                if (!isPracticeMode)
+                activeItemIndex++;
+                if (activeItemIndex >= currentQuestion.dataValues.Count)
                 {
-                    currentLives--;
-
-                    if (currentLives >= 0 && currentLives < hearts.Length && hearts[currentLives] != null)
-                    {
-                        hearts[currentLives].SetActive(false);
-                    }
-
-                    if (currentLives <= 0)
-                    {
-                        TriggerGameOver();
-                        return;
-                    }
+                    StartCoroutine(TransitionToNextQuestion());
                 }
-
-                Invoke("ResetScannerCooldown", 2f);
+                else
+                {
+                    RefreshClipboardList();
+                    Invoke("TurnOnScanner", 1.0f);
+                }
             }
+        }
+
+        private void HandleWrongRow()
+        {
+            isProcessingScan = true;
+            if (wrongSound != null) wrongSound.Play();
+            PlayVFX(wrongVfxPrefab, secondaryWrongVfxPrefab, tertiaryWrongVfxPrefabs);
+
+            string catName = "Item";
+            if (currentQuestion.categoryNames != null && activeItemIndex < currentQuestion.categoryNames.Count)
+                catName = currentQuestion.categoryNames[activeItemIndex];
+
+            QuestionResult result = new QuestionResult();
+            result.questionText = catName;
+            result.correctAnswer = currentQuestion.dataValues[activeItemIndex].ToString();
+            result.userResponse = inputBuffer;
+            result.isCorrect = false;
+            result.responseTime = Time.time - currentQuestionStartTime;
+            sessionResults.Add(result);
+
+            if (!isPracticeMode)
+            {
+                currentLives--;
+                if (currentLives >= 0 && currentLives < hearts.Length && hearts[currentLives] != null) hearts[currentLives].SetActive(false);
+                if (currentLives <= 0) { TriggerGameOver(); return; }
+            }
+
+            Invoke("RecoverFromWrongAnswer", 1.5f);
+        }
+
+        private void RecoverFromWrongAnswer()
+        {
+            inputBuffer = "";
+            lastScannedDigit = ""; // Reset tracker
+            RefreshClipboardList();
+            TurnOnScanner();
         }
 
         private void PlayVFX(GameObject primary, GameObject secondary, GameObject[] tertiaries)
@@ -507,7 +527,6 @@ namespace Eduzo.Games.DataHandling
                 pVfx.transform.localScale = new Vector3(vfxScale, vfxScale, vfxScale);
                 Destroy(pVfx, 3f);
             }
-
             if (secondary != null && secondaryVfxSpawnPoint != null)
             {
                 GameObject sVfx = Instantiate(secondary, secondaryVfxSpawnPoint.position, Quaternion.identity);
@@ -515,14 +534,12 @@ namespace Eduzo.Games.DataHandling
                 sVfx.transform.localScale = new Vector3(vfxScale, vfxScale, vfxScale);
                 Destroy(sVfx, 3f);
             }
-
             if (tertiaries != null && tertiaries.Length > 0 && vfxSpawnPoint != null)
             {
                 GameObject randomTertiary = tertiaries[Random.Range(0, tertiaries.Length)];
                 if (randomTertiary != null)
                 {
                     Vector3 offset = new Vector3(Random.Range(-tertiaryOffset, tertiaryOffset), Random.Range(-tertiaryOffset, tertiaryOffset), 0f);
-
                     GameObject tVfx = Instantiate(randomTertiary, vfxSpawnPoint.position + offset, Quaternion.identity);
                     tVfx.transform.SetParent(vfxSpawnPoint, true);
                     tVfx.transform.localScale = new Vector3(tertiaryVfxScale, tertiaryVfxScale, tertiaryVfxScale);
@@ -531,37 +548,19 @@ namespace Eduzo.Games.DataHandling
             }
         }
 
-        public void ClearScannedAnswer()
-        {
-            if (buttonSelect != null) buttonSelect.Play();
-
-            inputBuffer = "";
-            isProcessingScan = false;
-
-            if (feedbackText != null) { feedbackText.color = Color.yellow; feedbackText.text = ""; }
-
-            if (qrScanner != null) qrScanner.Reset();
-        }
-
-        private void ResetScannerCooldown()
-        {
-            ClearScannedAnswer();
-        }
-
         private IEnumerator TransitionToNextQuestion()
         {
+            if (unaskedQuestions.Contains(currentQuestionBankIndex)) unaskedQuestions.Remove(currentQuestionBankIndex);
+            if (qrScanner != null) qrScanner.StopWork();
+            isTimerRunning = false;
+
             yield return new WaitForSeconds(1.5f);
 
             if (fadeGroup != null)
             {
                 fadeGroup.blocksRaycasts = true;
                 float alpha = 0f;
-                while (alpha < 1f)
-                {
-                    alpha += Time.deltaTime * fadeSpeed;
-                    fadeGroup.alpha = Mathf.Clamp01(alpha);
-                    yield return null;
-                }
+                while (alpha < 1f) { alpha += Time.deltaTime * fadeSpeed; fadeGroup.alpha = Mathf.Clamp01(alpha); yield return null; }
             }
 
             StartTestQuestion();
@@ -569,12 +568,7 @@ namespace Eduzo.Games.DataHandling
             if (fadeGroup != null)
             {
                 float alpha = 1f;
-                while (alpha > 0f)
-                {
-                    alpha -= Time.deltaTime * fadeSpeed;
-                    fadeGroup.alpha = Mathf.Clamp01(alpha);
-                    yield return null;
-                }
+                while (alpha > 0f) { alpha -= Time.deltaTime * fadeSpeed; fadeGroup.alpha = Mathf.Clamp01(alpha); yield return null; }
                 fadeGroup.blocksRaycasts = false;
             }
         }
@@ -588,41 +582,27 @@ namespace Eduzo.Games.DataHandling
             if (qrScanner != null) qrScanner.StopWork();
             if (gameScreen != null) gameScreen.SetActive(false);
             if (gameOverScreen != null) gameOverScreen.SetActive(true);
-
             StartCoroutine(GameOverToScoreRoutine());
         }
 
         private IEnumerator GameOverToScoreRoutine()
         {
             yield return new WaitForSeconds(2f);
-
             if (fadeGroup != null)
             {
                 fadeGroup.blocksRaycasts = true;
                 float alpha = 0f;
-                while (alpha < 1f)
-                {
-                    alpha += Time.deltaTime * fadeSpeed;
-                    fadeGroup.alpha = Mathf.Clamp01(alpha);
-                    yield return null;
-                }
+                while (alpha < 1f) { alpha += Time.deltaTime * fadeSpeed; fadeGroup.alpha = Mathf.Clamp01(alpha); yield return null; }
             }
 
             if (gameOverScreen != null) gameOverScreen.SetActive(false);
-
             GenerateScoreSummary();
-
             if (scoreScreen != null) scoreScreen.SetActive(true);
 
             if (fadeGroup != null)
             {
                 float alpha = 1f;
-                while (alpha > 0f)
-                {
-                    alpha -= Time.deltaTime * fadeSpeed;
-                    fadeGroup.alpha = Mathf.Clamp01(alpha);
-                    yield return null;
-                }
+                while (alpha > 0f) { alpha -= Time.deltaTime * fadeSpeed; fadeGroup.alpha = Mathf.Clamp01(alpha); yield return null; }
                 fadeGroup.blocksRaycasts = false;
             }
         }
@@ -642,9 +622,7 @@ namespace Eduzo.Games.DataHandling
             isTimerRunning = false;
             if (qrScanner != null) qrScanner.StopWork();
             if (gameScreen != null) gameScreen.SetActive(false);
-
             GenerateScoreSummary();
-
             if (scoreScreen != null) scoreScreen.SetActive(true);
         }
 
@@ -652,42 +630,40 @@ namespace Eduzo.Games.DataHandling
         {
             if (scoreSummaryText == null) return;
 
-            int correctCount = 0;
-            int wrongCount = 0;
-
-            foreach (var res in sessionResults)
-            {
-                if (res.isCorrect) correctCount++;
-                else wrongCount++;
-            }
-
+            int correctCount = 0; int wrongCount = 0;
+            foreach (var res in sessionResults) { if (res.isCorrect) correctCount++; else wrongCount++; }
             int totalResponses = sessionResults.Count;
             int score = totalResponses > 0 ? Mathf.RoundToInt(((float)correctCount / totalResponses) * 100f) : 0;
             float activeTime = Time.time - gameStartTime;
 
             string summary = "========== GAME SCORE SUMMARY ==========\n";
-            summary += $"Score: {score}%\n";
-            summary += $"Active Time: {activeTime:F1}s\n";
-            summary += "Idle Time: 0s\n\n";
-            summary += $"Total Responses: {totalResponses}\n";
-            summary += $"Correct Answers: {correctCount}\n";
-            summary += $"Wrong Answers: {wrongCount}\n\n";
-            summary += "========== QUESTION BREAKDOWN ==========\n\n";
+            summary += $"Score: {score}%\nActive Time: {activeTime:F1}s\n\nTotal Responses: {totalResponses}\nCorrect: {correctCount} | Wrong: {wrongCount}\n\n========== QUESTION BREAKDOWN ==========\n\n";
 
             for (int i = 0; i < sessionResults.Count; i++)
             {
                 var res = sessionResults[i];
-                string simpleQuestion = res.questionText.Replace("How many ", "").Replace(" are there?", "");
-
-                summary += $"--- Question {i + 1} ---\n";
-                summary += $"Item: {simpleQuestion}\n";
-                summary += $"Correct Answer: {res.correctAnswer}\n";
-                summary += $"User's Response: {res.userResponse}\n";
-                summary += $"Result: {(res.isCorrect ? "CORRECT" : "INCORRECT")}\n";
-                summary += $"Response Time: {res.responseTime:F1}s\n\n";
+                summary += $"--- Scan {i + 1} ---\nItem: {res.questionText}\nTarget: {res.correctAnswer} | Scanned: {res.userResponse}\nResult: {(res.isCorrect ? "CORRECT" : "INCORRECT")}\n\n";
             }
-
             scoreSummaryText.text = summary;
+        }
+
+        // --- ALL UI BUTTON METHODS FULLY RESTORED ---
+        public void SelectPracticeMode()
+        {
+            if (buttonSelect != null) buttonSelect.Play();
+            isPracticeMode = true;
+            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
+            if (playerDataScreen != null) playerDataScreen.SetActive(true);
+            if (timerInput != null) timerInput.gameObject.SetActive(false);
+        }
+
+        public void SelectTestMode()
+        {
+            if (buttonSelect != null) buttonSelect.Play();
+            isPracticeMode = false;
+            if (modeSelectionScreen != null) modeSelectionScreen.SetActive(false);
+            if (playerDataScreen != null) playerDataScreen.SetActive(true);
+            if (timerInput != null) timerInput.gameObject.SetActive(true);
         }
 
         public void OpenOptionsMenu()
@@ -709,15 +685,11 @@ namespace Eduzo.Games.DataHandling
         public void ReplayGame()
         {
             if (buttonSelect != null) buttonSelect.Play();
-
             StopAllCoroutines();
             if (fadeGroup != null) { fadeGroup.alpha = 0f; fadeGroup.blocksRaycasts = false; }
 
             unaskedQuestions.Clear();
-            for (int i = 0; i < questionBank.Count; i++)
-            {
-                unaskedQuestions.Add(i);
-            }
+            for (int i = 0; i < questionBank.Count; i++) unaskedQuestions.Add(i);
 
             if (practiceCompleteScreen != null) practiceCompleteScreen.SetActive(false);
             if (scoreScreen != null) scoreScreen.SetActive(false);
@@ -732,23 +704,18 @@ namespace Eduzo.Games.DataHandling
                 timeRemaining = currentTimerValue;
                 isFastTicking = false;
                 if (timerContainer != null) timerContainer.SetActive(true);
-
                 if (timerText != null) timerText.text = currentTimerValue.ToString();
-
                 currentLives = 3;
                 foreach (var heart in hearts) if (heart != null) heart.SetActive(true);
             }
-
             StartTestQuestion();
         }
 
         public void ReturnToHome()
         {
             if (buttonSelect != null) buttonSelect.Play();
-
             StopAllCoroutines();
             if (fadeGroup != null) { fadeGroup.alpha = 0f; fadeGroup.blocksRaycasts = false; }
-
             isTimerRunning = false;
             if (qrScanner != null) qrScanner.StopWork();
 
@@ -763,13 +730,10 @@ namespace Eduzo.Games.DataHandling
             if (formScreen != null) formScreen.SetActive(true);
         }
 
-        // --- NEW: THE METHOD TO QUIT THE GAME ---
         public void QuitGame()
         {
             if (buttonSelect != null) buttonSelect.Play();
-
             Debug.Log("Game is quitting...");
-
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else

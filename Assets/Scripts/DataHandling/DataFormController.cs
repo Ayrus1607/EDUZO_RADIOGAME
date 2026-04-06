@@ -14,7 +14,11 @@ namespace Eduzo.Games.DataHandling
         [Header("Form UI")]
         public TMP_Dropdown modeDropdown;
 
-        [Header("Input Pairs (Must be exactly 3 of each)")]
+        [Header("NEW: Range Restriction")]
+        public TMP_Dropdown rangeDropdown; // Options should be text like "10", "20", "30"
+        public TextMeshProUGUI rangeWarningText;
+
+        [Header("Input Pairs")]
         public TMP_InputField[] nameInputs;
         public TMP_InputField[] valueInputs;
 
@@ -33,6 +37,11 @@ namespace Eduzo.Games.DataHandling
         void Start()
         {
             modeDropdown.onValueChanged.AddListener(delegate { UpdateFormUI(); });
+
+            // Listen for range changes
+            if (rangeDropdown != null)
+                rangeDropdown.onValueChanged.AddListener(delegate { UpdateFormUI(); });
+
             foreach (var input in valueInputs)
             {
                 input.onValueChanged.AddListener(delegate { UpdateFormUI(); });
@@ -50,31 +59,74 @@ namespace Eduzo.Games.DataHandling
         {
             int mode = modeDropdown.value;
             bool isValid = true;
+            int validItemCount = 0;
+            int sum = 0;
+            bool isOverRange = false;
 
             if (uploadPanel != null) uploadPanel.SetActive(mode == 3);
 
-            foreach (var input in valueInputs)
+            // --- NEW FIX: Get the Max Range Allowed from Dropdown ---
+            int maxRangeAllowed = 10;
+            if (rangeDropdown != null && rangeDropdown.options.Count > 0)
             {
-                if (!int.TryParse(input.text, out int parsedValue))
+                // Grabs the text (e.g. "20") and parses it to an int
+                int.TryParse(rangeDropdown.options[rangeDropdown.value].text, out maxRangeAllowed);
+                if (maxRangeAllowed <= 0) maxRangeAllowed = 10; // Fallback
+            }
+
+            // Check all input fields
+            for (int i = 0; i < valueInputs.Length; i++)
+            {
+                string textValue = valueInputs[i].text.Trim();
+
+                if (!string.IsNullOrEmpty(textValue))
                 {
-                    isValid = false;
+                    if (int.TryParse(textValue, out int parsedValue))
+                    {
+                        validItemCount++;
+                        sum += parsedValue;
+
+                        // Check if the value breaks the range rule! (Skip checking for Pie Chart)
+                        if (mode != 1 && parsedValue > maxRangeAllowed)
+                        {
+                            isValid = false;
+                            isOverRange = true;
+                        }
+                    }
+                    else
+                    {
+                        isValid = false;
+                    }
                 }
             }
 
+            if (validItemCount == 0) isValid = false;
+
+            // --- NEW FIX: Show Range Warning ---
+            if (rangeWarningText != null)
+            {
+                if (isOverRange)
+                {
+                    rangeWarningText.text = $"Values cannot exceed Max Range ({maxRangeAllowed})!";
+                    rangeWarningText.gameObject.SetActive(true);
+                }
+                else
+                {
+                    rangeWarningText.gameObject.SetActive(false);
+                }
+            }
+
+            // Pie Chart Specific Logic
             if (mode == 1)
             {
-                int sum = 0;
-                foreach (var input in valueInputs)
-                {
-                    int val = 0;
-                    int.TryParse(input.text, out val);
-                    sum += val;
-                }
-
                 if (sum != 100)
                 {
                     isValid = false;
-                    if (pieChartWarning != null) { pieChartWarning.gameObject.SetActive(true); pieChartWarning.text = $"Pie Chart total must be 100! (Current: {sum})"; }
+                    if (pieChartWarning != null)
+                    {
+                        pieChartWarning.gameObject.SetActive(true);
+                        pieChartWarning.text = $"Pie Chart total must be 100! (Current: {sum})";
+                    }
                 }
                 else
                 {
@@ -132,20 +184,21 @@ namespace Eduzo.Games.DataHandling
             newQ.categoryNames = new List<string>();
             newQ.dataValues = new List<int>();
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < valueInputs.Length; i++)
             {
-                string itemName = string.IsNullOrEmpty(nameInputs[i].text) ? "Item " + (i + 1) : nameInputs[i].text;
-                newQ.categoryNames.Add(itemName);
+                string textValue = valueInputs[i].text.Trim();
 
-                int val = 0;
-                int.TryParse(valueInputs[i].text, out val);
-                newQ.dataValues.Add(val);
+                if (!string.IsNullOrEmpty(textValue) && int.TryParse(textValue, out int val))
+                {
+                    string itemName = string.IsNullOrEmpty(nameInputs[i].text) ? "Item " + (i + 1) : nameInputs[i].text;
+                    newQ.categoryNames.Add(itemName);
+                    newQ.dataValues.Add(val);
+                }
             }
 
-            int randomTarget = Random.Range(0, 3);
+            int randomTarget = Random.Range(0, newQ.dataValues.Count);
             newQ.questionText = $"How many {newQ.categoryNames[randomTarget]} are there?";
             newQ.correctAnswer = newQ.dataValues[randomTarget].ToString();
-
             newQ.targetIndex = randomTarget;
 
             if (newQ.preferredMode == 3 && customLoadedSprite != null)
@@ -160,31 +213,26 @@ namespace Eduzo.Games.DataHandling
                 gameManager.correctSound.Play();
             }
 
-            Debug.Log($"Added Question: {newQ.questionText} | Answer: {newQ.correctAnswer}");
+            Debug.Log($"Added Question with {newQ.dataValues.Count} items!");
 
-            // --- NEW: WIPE THE FORM CLEAN ---
-
-            // 1. Reset Dropdown to the top choice
+            // Wipe the form clean
             if (modeDropdown != null) modeDropdown.value = 0;
+            if (rangeDropdown != null) rangeDropdown.value = 0; // Reset range dropdown too
 
-            // 2. Clear all Item Name boxes
             if (nameInputs != null)
             {
                 foreach (var input in nameInputs) { if (input != null) input.text = ""; }
             }
 
-            // 3. Clear all Item Value boxes
             if (valueInputs != null)
             {
                 foreach (var input in valueInputs) { if (input != null) input.text = ""; }
             }
 
-            // 4. Clear Image Upload stuff
             customLoadedSprite = null;
             if (imagePreview != null) imagePreview.sprite = null;
             if (imagePathInput != null) imagePathInput.text = "";
 
-            // 5. Force the UI to update so the Add button locks itself again!
             UpdateFormUI();
         }
 

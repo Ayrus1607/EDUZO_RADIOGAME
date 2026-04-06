@@ -18,7 +18,7 @@ namespace Eduzo.Games.DataHandling
         [Header("Chalk Colors")]
         public List<Color> chalkColors;
 
-        public void GenerateGraph(List<int> data, List<string> categoryNames)
+        public void GenerateGraph(List<int> data, List<string> categoryNames, int dynamicYRange = 0)
         {
             // 1. Clean up old bars and old ticks
             foreach (Transform child in graphContainer) Destroy(child.gameObject);
@@ -35,14 +35,14 @@ namespace Eduzo.Games.DataHandling
             }
             if (maxValue < 1) maxValue = 1;
 
-            // --- FIXED MATH: Calculate Ceiling and Steps ---
-            int graphCeiling = Mathf.CeilToInt(maxValue / 10f) * 10;
+            // 3. Smart Y-Axis Ceiling
+            int graphCeiling = dynamicYRange > 0 ? dynamicYRange : Mathf.CeilToInt(maxValue / 10f) * 10;
             if (graphCeiling < 10) graphCeiling = 10;
 
             int stepSize = graphCeiling / 10;
             if (maxValue <= 10) { graphCeiling = 10; stepSize = 1; }
 
-            // 3. Draw the Y-Axis Ticks & Numbers (Only spawns up to 10 ticks now!)
+            // 4. Draw the Y-Axis Ticks & Numbers
             if (yAxisLine != null && fontStyleReference != null)
             {
                 for (int i = stepSize; i <= graphCeiling; i += stepSize)
@@ -77,26 +77,60 @@ namespace Eduzo.Games.DataHandling
                 }
             }
 
-            // 4. Draw the Bars
+            // 5. Measure the container width
+            RectTransform containerRect = graphContainer.GetComponent<RectTransform>();
+            float totalWidth = containerRect != null ? containerRect.rect.width : 600f;
+            if (totalWidth <= 0) totalWidth = 600f;
+
+            // Subtract the Unity Spacing so we know exactly how much room the bars actually have
+            HorizontalLayoutGroup layoutGroup = graphContainer.GetComponent<HorizontalLayoutGroup>();
+            if (layoutGroup != null && data.Count > 0)
+            {
+                float padding = layoutGroup.padding.left + layoutGroup.padding.right;
+                float spacing = layoutGroup.spacing * (data.Count - 1);
+                totalWidth = totalWidth - padding - spacing;
+            }
+
+            // Divide the usable space by the number of items
+            float columnWidth = totalWidth / data.Count;
+
+            // --- THE FIX: Let the bar take up 100% of the column width! ---
+            // The only gap between the bars will be the "10" or "15" spacing you set in Unity.
+            float barWidth = columnWidth;
+            if (barWidth > 150f) barWidth = 150f;
+
+            // 6. Draw the Bars
             for (int i = 0; i < data.Count; i++)
             {
                 GameObject newColumn = Instantiate(columnPrefab, graphContainer);
 
+                RectTransform columnRt = newColumn.GetComponent<RectTransform>();
+                if (columnRt != null)
+                {
+                    columnRt.sizeDelta = new Vector2(columnWidth, columnRt.sizeDelta.y);
+                }
+
                 Image barImage = newColumn.transform.Find("Bar_Chalk")?.GetComponent<Image>();
                 TextMeshProUGUI categoryText = newColumn.transform.Find("Category_Text")?.GetComponent<TextMeshProUGUI>();
 
-                if (barImage == null || categoryText == null) continue;
-
-                if (chalkColors != null && chalkColors.Count > 0) barImage.color = chalkColors[i % chalkColors.Count];
-
-                // Height based on ceiling
-                float heightPercentage = (float)data[i] / graphCeiling;
-                barImage.rectTransform.sizeDelta = new Vector2(barImage.rectTransform.sizeDelta.x, maxHeight * heightPercentage);
-
-                if (categoryNames != null && categoryNames.Count > 0)
+                if (barImage != null)
                 {
-                    string catName = (i < categoryNames.Count) ? categoryNames[i] : "Item";
+                    if (chalkColors != null && chalkColors.Count > 0) barImage.color = chalkColors[i % chalkColors.Count];
+
+                    float heightPercentage = (float)data[i] / graphCeiling;
+                    barImage.rectTransform.sizeDelta = new Vector2(barWidth, maxHeight * heightPercentage);
+                }
+
+                if (categoryText != null)
+                {
+                    string catName = (categoryNames != null && i < categoryNames.Count) ? categoryNames[i] : "Item";
                     categoryText.text = catName;
+
+                    categoryText.rectTransform.sizeDelta = new Vector2(columnWidth, categoryText.rectTransform.sizeDelta.y);
+
+                    categoryText.enableAutoSizing = true;
+                    categoryText.fontSizeMin = 10;
+                    categoryText.fontSizeMax = 28;
                 }
             }
         }
