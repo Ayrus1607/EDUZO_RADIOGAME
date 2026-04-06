@@ -13173,9 +13173,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8ffeae3c6af4694e882001fbc4b97b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Eduzo.Games.DataHandling.DataGameManager
-  quickStartDebug: 0
-  forceGameMode: 1
-  debugDataValues: 020000000c0000000e000000
+  quickStartDebug: 1
+  forceGameMode: 0
+  debugDataValues: 050000000d0000001100000001000000080000000b00000013000000
   fadeGroup: {fileID: 1256278564}
   fadeSpeed: 1.5
   clipboardRowPrefab: {fileID: 3219035301245563343, guid: df0cb34a460fd684bba8534b4c06e5f7, type: 3}
@@ -14071,7 +14071,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1256278561
 RectTransform:
   m_ObjectHideFlags: 0

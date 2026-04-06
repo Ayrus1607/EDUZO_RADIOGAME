@@ -27,7 +27,7 @@ namespace Eduzo.Games.DataHandling
                 foreach (Transform child in yAxisLine) Destroy(child.gameObject);
             }
 
-            // 2. Find the highest number
+            // 2. Find the highest number to set the ceiling
             int maxValue = 0;
             foreach (int amount in data)
             {
@@ -35,19 +35,28 @@ namespace Eduzo.Games.DataHandling
             }
             if (maxValue < 1) maxValue = 1;
 
-            // 3. Smart Y-Axis Ceiling
-            int graphCeiling = dynamicYRange > 0 ? dynamicYRange : Mathf.CeilToInt(maxValue / 10f) * 10;
-            if (graphCeiling < 10) graphCeiling = 10;
+            // 3. Smart Y-Axis Ceiling: Exact Max Value!
+            // We no longer round up to the nearest 10. The highest bar touches the exact top.
+            int graphCeiling = maxValue;
 
-            int stepSize = graphCeiling / 10;
-            if (maxValue <= 10) { graphCeiling = 10; stepSize = 1; }
+            // 4. Extract EXACT unique values for the Y-Axis
+            List<int> uniqueValues = new List<int>();
+            foreach (int val in data)
+            {
+                // We grab every unique number the teacher typed (ignoring 0)
+                if (val > 0 && !uniqueValues.Contains(val))
+                {
+                    uniqueValues.Add(val);
+                }
+            }
+            uniqueValues.Sort(); // Sort from lowest to highest
 
-            // 4. Draw the Y-Axis Ticks & Numbers
+            // 5. Draw the Y-Axis Ticks & Numbers Exactly at Data Heights
             if (yAxisLine != null && fontStyleReference != null)
             {
-                for (int i = stepSize; i <= graphCeiling; i += stepSize)
+                foreach (int val in uniqueValues)
                 {
-                    GameObject tick = new GameObject("Tick_" + i);
+                    GameObject tick = new GameObject("Tick_" + val);
                     tick.transform.SetParent(yAxisLine, false);
                     Image img = tick.AddComponent<Image>();
                     img.color = Color.white;
@@ -57,18 +66,18 @@ namespace Eduzo.Games.DataHandling
                     rt.pivot = new Vector2(0f, 0.5f);
                     rt.sizeDelta = new Vector2(20, 4);
 
-                    // Height based on ceiling
-                    float heightPos = maxHeight * ((float)i / graphCeiling);
+                    // Height perfectly matches the exact value!
+                    float heightPos = maxHeight * ((float)val / graphCeiling);
                     rt.anchoredPosition = new Vector2(0, heightPos);
 
-                    GameObject txtObj = new GameObject("Num_" + i);
+                    GameObject txtObj = new GameObject("Num_" + val);
                     txtObj.transform.SetParent(tick.transform, false);
                     TextMeshProUGUI txt = txtObj.AddComponent<TextMeshProUGUI>();
                     txt.font = fontStyleReference.font;
                     txt.fontSize = fontStyleReference.fontSize;
                     txt.color = fontStyleReference.color;
                     txt.alignment = TextAlignmentOptions.Right | TextAlignmentOptions.Capline;
-                    txt.text = i.ToString();
+                    txt.text = val.ToString();
 
                     RectTransform txtRt = txtObj.GetComponent<RectTransform>();
                     txtRt.pivot = new Vector2(1f, 0.5f);
@@ -77,12 +86,11 @@ namespace Eduzo.Games.DataHandling
                 }
             }
 
-            // 5. Measure the container width
+            // 6. Measure the container width
             RectTransform containerRect = graphContainer.GetComponent<RectTransform>();
             float totalWidth = containerRect != null ? containerRect.rect.width : 600f;
             if (totalWidth <= 0) totalWidth = 600f;
 
-            // Subtract the Unity Spacing so we know exactly how much room the bars actually have
             HorizontalLayoutGroup layoutGroup = graphContainer.GetComponent<HorizontalLayoutGroup>();
             if (layoutGroup != null && data.Count > 0)
             {
@@ -91,15 +99,11 @@ namespace Eduzo.Games.DataHandling
                 totalWidth = totalWidth - padding - spacing;
             }
 
-            // Divide the usable space by the number of items
             float columnWidth = totalWidth / data.Count;
-
-            // --- THE FIX: Let the bar take up 100% of the column width! ---
-            // The only gap between the bars will be the "10" or "15" spacing you set in Unity.
             float barWidth = columnWidth;
             if (barWidth > 150f) barWidth = 150f;
 
-            // 6. Draw the Bars
+            // 7. Draw the Bars
             for (int i = 0; i < data.Count; i++)
             {
                 GameObject newColumn = Instantiate(columnPrefab, graphContainer);
