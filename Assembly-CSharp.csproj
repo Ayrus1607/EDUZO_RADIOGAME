@@ -1509,6 +1509,10 @@
       <Project>{389F3DB4-0B7A-DFCD-6DED-58DB9D7FFCCC}</Project>
       <Name>Beardy.BeardsGridLayoutGroup.Runtime</Name>
     </ProjectReference>
+    <ProjectReference Include="SimpleFileBrowser.Runtime.csproj">
+      <Project>{CC361FEB-C7DA-05C7-04BA-32B2B2013D31}</Project>
+      <Name>SimpleFileBrowser.Runtime</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="GenerateTargetFrameworkMonikerAttribute" />

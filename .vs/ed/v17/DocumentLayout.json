@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "D:\\2026\\ed\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}|Assembly-CSharp.csproj|d:\\2026\\ed\\assets\\scripts\\datahandling\\dataformcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\datahandling\\dataformcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}|Assembly-CSharp.csproj|d:\\2026\\ed\\assets\\scripts\\datahandling\\datagamemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\datahandling\\datagamemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
@@ -19,6 +23,19 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "DataFormController.cs",
+              "DocumentMoniker": "D:\\2026\\ed\\Assets\\Scripts\\DataHandling\\DataFormController.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\DataHandling\\DataFormController.cs",
+              "ToolTip": "D:\\2026\\ed\\Assets\\Scripts\\DataHandling\\DataFormController.cs",
+              "RelativeToolTip": "Assets\\Scripts\\DataHandling\\DataFormController.cs",
+              "ViewState": "AgIAAOMAAAAAAAAAAAAqwA8BAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-06T11:28:25.554Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
               "Title": "DataGameManager.cs",
               "DocumentMoniker": "D:\\2026\\ed\\Assets\\Scripts\\DataHandling\\DataGameManager.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\DataHandling\\DataGameManager.cs",

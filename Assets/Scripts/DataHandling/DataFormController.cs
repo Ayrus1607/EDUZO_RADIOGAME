@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using UnityEngine.Networking;
 using System.Collections;
+using SimpleFileBrowser;
 
 namespace Eduzo.Games.DataHandling
 {
@@ -14,8 +15,8 @@ namespace Eduzo.Games.DataHandling
         [Header("Form UI")]
         public TMP_Dropdown modeDropdown;
 
-        [Header("NEW: Range Restriction")]
-        public TMP_Dropdown rangeDropdown; // Options should be text like "10", "20", "30"
+        [Header("Range Restriction")]
+        public TMP_Dropdown rangeDropdown;
         public TextMeshProUGUI rangeWarningText;
 
         [Header("Input Pairs")]
@@ -38,7 +39,6 @@ namespace Eduzo.Games.DataHandling
         {
             modeDropdown.onValueChanged.AddListener(delegate { UpdateFormUI(); });
 
-            // Listen for range changes
             if (rangeDropdown != null)
                 rangeDropdown.onValueChanged.AddListener(delegate { UpdateFormUI(); });
 
@@ -52,6 +52,9 @@ namespace Eduzo.Games.DataHandling
                 loadImageButton.onClick.AddListener(OnLoadImageClicked);
             }
 
+            FileBrowser.SetFilters(true, new FileBrowser.Filter("Images", ".jpg", ".png", ".jpeg"));
+            FileBrowser.SetDefaultFilter(".png");
+
             UpdateFormUI();
         }
 
@@ -63,18 +66,22 @@ namespace Eduzo.Games.DataHandling
             int sum = 0;
             bool isOverRange = false;
 
+            // Show/Hide Image Upload
             if (uploadPanel != null) uploadPanel.SetActive(mode == 3);
 
-            // --- NEW FIX: Get the Max Range Allowed from Dropdown ---
+            // --- THE FIX: ONLY SHOW RANGE DROPDOWN FOR BAR GRAPH (Mode 0) ---
+            if (rangeDropdown != null)
+            {
+                rangeDropdown.gameObject.SetActive(mode == 0);
+            }
+
             int maxRangeAllowed = 10;
             if (rangeDropdown != null && rangeDropdown.options.Count > 0)
             {
-                // Grabs the text (e.g. "20") and parses it to an int
                 int.TryParse(rangeDropdown.options[rangeDropdown.value].text, out maxRangeAllowed);
-                if (maxRangeAllowed <= 0) maxRangeAllowed = 10; // Fallback
+                if (maxRangeAllowed <= 0) maxRangeAllowed = 10;
             }
 
-            // Check all input fields
             for (int i = 0; i < valueInputs.Length; i++)
             {
                 string textValue = valueInputs[i].text.Trim();
@@ -86,8 +93,8 @@ namespace Eduzo.Games.DataHandling
                         validItemCount++;
                         sum += parsedValue;
 
-                        // Check if the value breaks the range rule! (Skip checking for Pie Chart)
-                        if (mode != 1 && parsedValue > maxRangeAllowed)
+                        // Only enforce range limit if it's a Bar Graph!
+                        if (mode == 0 && parsedValue > maxRangeAllowed)
                         {
                             isValid = false;
                             isOverRange = true;
@@ -102,7 +109,6 @@ namespace Eduzo.Games.DataHandling
 
             if (validItemCount == 0) isValid = false;
 
-            // --- NEW FIX: Show Range Warning ---
             if (rangeWarningText != null)
             {
                 if (isOverRange)
@@ -116,7 +122,6 @@ namespace Eduzo.Games.DataHandling
                 }
             }
 
-            // Pie Chart Specific Logic
             if (mode == 1)
             {
                 if (sum != 100)
@@ -143,18 +148,26 @@ namespace Eduzo.Games.DataHandling
 
         private void OnLoadImageClicked()
         {
-            string path = imagePathInput.text.Trim();
-            path = path.Replace("\"", "");
-            path = path.Replace("'", "");
+            if (gameManager != null && gameManager.buttonSelect != null) gameManager.buttonSelect.Play();
 
-            if (string.IsNullOrEmpty(path)) return;
-
-            if (!path.StartsWith("http") && !path.StartsWith("file://"))
+            FileBrowser.ShowLoadDialog((paths) =>
             {
-                path = "file:///" + path.Replace("\\", "/");
-            }
+                if (paths != null && paths.Length > 0)
+                {
+                    string selectedPath = paths[0];
 
-            StartCoroutine(DownloadImage(path));
+                    if (imagePathInput != null) imagePathInput.text = selectedPath;
+
+                    string formattedPath = "file:///" + selectedPath.Replace("\\", "/");
+
+                    StartCoroutine(DownloadImage(formattedPath));
+                }
+            },
+            () =>
+            {
+                Debug.Log("File selection canceled.");
+            },
+            FileBrowser.PickMode.Files, false, null, null, "Select an Image", "Select");
         }
 
         private IEnumerator DownloadImage(string url)
@@ -215,9 +228,8 @@ namespace Eduzo.Games.DataHandling
 
             Debug.Log($"Added Question with {newQ.dataValues.Count} items!");
 
-            // Wipe the form clean
             if (modeDropdown != null) modeDropdown.value = 0;
-            if (rangeDropdown != null) rangeDropdown.value = 0; // Reset range dropdown too
+            if (rangeDropdown != null) rangeDropdown.value = 0;
 
             if (nameInputs != null)
             {
