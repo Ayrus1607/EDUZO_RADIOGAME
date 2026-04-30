@@ -13158,9 +13158,12 @@ MonoBehaviour:
   fontStyleReference: {fileID: 875390339}
   maxHeight: 400
   chalkColors:
-  - {r: 0.75294125, g: 0.36862746, b: 0.56078434, a: 1}
-  - {r: 0.48235297, g: 0.76470596, b: 0.32941177, a: 1}
-  - {r: 0.32156864, g: 0.37647063, b: 0.7568628, a: 1}
+  - {r: 0.882353, g: 0.6392157, b: 0.121568635, a: 1}
+  - {r: 0.7803922, g: 0.36078432, b: 0.36078432, a: 1}
+  - {r: 0.36078432, g: 0.7372549, b: 0.7803922, a: 1}
+  - {r: 0.47058827, g: 0.35686275, b: 0.7411765, a: 1}
+  - {r: 0.5137255, g: 0.77647066, b: 0.38431376, a: 1}
+  - {r: 0.78823537, g: 0.37254903, b: 0.6117647, a: 1}
 --- !u!114 &1225904181
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -13173,7 +13176,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8ffeae3c6af4694e882001fbc4b97b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Eduzo.Games.DataHandling.DataGameManager
-  quickStartDebug: 1
+  quickStartDebug: 0
   forceGameMode: 0
   debugDataValues: 050000000d0000001100000001000000080000000b00000013000000
   fadeGroup: {fileID: 1256278564}
@@ -13258,9 +13261,12 @@ MonoBehaviour:
   legendItemPrefab: {fileID: 649482928330627602, guid: ad6cff14bb5235b439790ed9f5f98d1e, type: 3}
   legendContainer: {fileID: 623127346}
   sliceColors:
-  - {r: 0.7490196, g: 0.30588236, b: 0.30588236, a: 1}
-  - {r: 0.25490198, g: 0.6862745, b: 0.29803923, a: 1}
-  - {r: 0.8313726, g: 0, b: 0.7372549, a: 1}
+  - {r: 0.427451, g: 0.41960788, b: 0.8000001, a: 1}
+  - {r: 0.81568635, g: 0.454902, b: 0.45882356, a: 1}
+  - {r: 0.4431373, g: 0.7686275, b: 0.47058827, a: 1}
+  - {r: 0.8313726, g: 0.6509804, b: 0.1764706, a: 1}
+  - {r: 0.48235297, g: 0.7843138, b: 0.8313726, a: 1}
+  - {r: 0.78823537, g: 0.40784317, b: 0.7843138, a: 1}
 --- !u!114 &1225904183
 MonoBehaviour:
   m_ObjectHideFlags: 0
