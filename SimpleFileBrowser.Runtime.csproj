@@ -10,7 +10,7 @@
     <ProductVersion>10.0.20506</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <RootNamespace></RootNamespace>
-    <ProjectGuid>{CC361FEB-C7DA-05C7-04BA-32B2B2013D31}</ProjectGuid>
+    <ProjectGuid>{DF05C9C8-464E-89B9-042E-50A32DE18727}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <AssemblyName>SimpleFileBrowser.Runtime</AssemblyName>

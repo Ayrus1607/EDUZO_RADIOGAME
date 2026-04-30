@@ -1,3 +1,4 @@
+# Unity generated
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
@@ -5,3 +6,21 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Uu]serSettings/
+
+# IDE / Visual Studio
+.vs/
+*.sln
+*.csproj
+*.pidb
+*.unityproj
+
+# OS generated
+.DS_Store
+.DS_Store?
+Thumbs.db
+
+# Crashlytics
+crashlytics-build.properties
+
+# Compressed Unity packages (source imports, not needed in VCS)
+*.unitypackage.gz

@@ -10,7 +10,7 @@
     <ProductVersion>10.0.20506</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <RootNamespace></RootNamespace>
-    <ProjectGuid>{18BE70F6-BAE9-49BB-20C1-76033EDB4E8D}</ProjectGuid>
+    <ProjectGuid>{DF9BF549-0864-AB38-47BD-DD234B88B7FD}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <AssemblyName>Assembly-CSharp</AssemblyName>
@@ -62,45 +62,44 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\_Common\Extensions\SerializableDictionary\Example\UserSerializableDictionaries.cs" />
-    <Compile Include="Assets\Scripts\DataHandling\DataTableManager.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\VFX Library\UICanvasManager.cs" />
     <Compile Include="Assets\QRcode\Plugins\Internal\CameraSetting.cs" />
-    <Compile Include="Assets\Scripts\DataHandling\DataGameManager.cs" />
+    <Compile Include="Assets\Games\data-handling\Scripts\TallyMarkManager.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX (legacy)\Scripts\CFX_AutoDestructShuriken.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Scripts\ETFXPitchRandomizer.cs" />
     <Compile Include="Assets\QRcode\Scripts\GalleryController.cs" />
+    <Compile Include="Assets\Games\data-handling\Scripts\PieChartManager.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\ETFXEffectController.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX (legacy)\Demo\Assets\CFX_Demo_Translate.cs" />
-    <Compile Include="Assets\Scripts\DataHandling\PieChartManager.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\VFX Library\PEButtonScript.cs" />
     <Compile Include="Assets\QRcode\Plugins\Internal\RenderListenerUtility.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Scripts\ETFXLightFade.cs" />
+    <Compile Include="Assets\Games\data-handling\Scripts\DataFormController.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\ETFXEffectControllerPooled.cs" />
     <Compile Include="Assets\QRcode\Scripts\DeviceCamera.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX Remaster\CFXR Assets\Scripts\CFXR_ParticleText.cs" />
-    <Compile Include="Assets\Scripts\Radio\RadioGameManager.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX Remaster\Demo Assets\CFXR_Demo_Translate.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX (legacy)\Scripts\CFX_AutoRotate.cs" />
-    <Compile Include="Assets\Scripts\DataHandling\TallyMarkManager.cs" />
     <Compile Include="Assets\QRcode\Scripts\QRCodeEncodeController.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Scripts\ETFXRotation.cs" />
+    <Compile Include="Assets\Games\radio\Scripts\RadioFormController.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX Remaster\Demo Assets\CFXR_Demo_Rotate.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX Remaster\CFXR Assets\Scripts\CFXR_Effect.CameraShake.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\ETFXSceneManager.cs" />
-    <Compile Include="Assets\Scripts\Radio\RadioFormController.cs" />
+    <Compile Include="Assets\Games\data-handling\Scripts\BarGraphManager.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\ETFXButtonScript.cs" />
+    <Compile Include="Assets\Games\data-handling\Scripts\DataTableManager.cs" />
     <Compile Include="Assets\QRcode\Plugins\Loom\Loom.cs" />
+    <Compile Include="Assets\Games\radio\Scripts\RadioQuestionData.cs" />
     <Compile Include="Assets\QRcode\Plugins\Internal\EasyWebCamCallBack.cs" />
     <Compile Include="Assets\QRcode\Scripts\QREncodeTest.cs" />
+    <Compile Include="Assets\Games\radio\Scripts\RadioGameManager.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\ETFXMouseOrbit.cs" />
-    <Compile Include="Assets\Scripts\Radio\RadioQuestionData.cs" />
     <Compile Include="Assets\QRcode\Scripts\TextureScale.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\VFX Library\ParticleEffectsLibrary.cs" />
     <Compile Include="Assets\QRcode\Plugins\Internal\NativePlugin.cs" />
     <Compile Include="Assets\QRcode\Scripts\EasyWebCam.cs" />
     <Compile Include="Assets\QRcode\Scripts\Utility.cs" />
-    <Compile Include="Assets\Scripts\DataHandling\BarGraphManager.cs" />
-    <Compile Include="Assets\Scripts\DataHandling\DataFormController.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX (legacy)\Demo\Assets\CFX_Demo_New.cs" />
     <Compile Include="Assets\_Common\Extensions\SerializableDictionary\SerializableHashSet.cs" />
     <Compile Include="Assets\QRcode\Plugins\Internal\EasyWebCamBase.cs" />
@@ -110,6 +109,7 @@
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX (legacy)\Scripts\CFX_LightIntensityFade.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX (legacy)\Scripts\CFX_LightFlicker.cs" />
     <Compile Include="Assets\QRcode\Plugins\Internal\EasyWebCamiOS.cs" />
+    <Compile Include="Assets\Games\data-handling\Scripts\DataGameManager.cs" />
     <Compile Include="Assets\QRcode\Plugins\Internal\Utilities.cs" />
     <Compile Include="Assets\QRcode\Plugins\Internal\NativePluginStatic.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX (legacy)\Demo\Assets\CFX_Demo_RotateCamera.cs" />
@@ -119,9 +119,9 @@
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\ETFXFireProjectile.cs" />
     <Compile Include="Assets\QRcode\Plugins\Internal\IEasyWebCam.cs" />
     <Compile Include="Assets\_Common\JMO Assets\Cartoon FX Remaster\CFXR Assets\Scripts\CFXR_Effect.cs" />
+    <Compile Include="Assets\Games\radio\Scripts\RadioPulseEffect.cs" />
     <Compile Include="Assets\_Common\Extensions\SerializableDictionary\SerializableDictionary.cs" />
     <Compile Include="Assets\_Common\Extensions\SerializableDictionary\Example\SerializableDictionaryExample.cs" />
-    <Compile Include="Assets\Scripts\Radio\RadioPulseEffect.cs" />
     <Compile Include="Assets\QRcode\Scripts\QRDecodeTest.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\ETFXTarget.cs" />
     <Compile Include="Assets\_Common\Epic Toon FX\Demo\Scripts\ETFXLoopScript.cs" />
@@ -1506,11 +1506,11 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Beardy.BeardsGridLayoutGroup.Runtime.csproj">
-      <Project>{389F3DB4-0B7A-DFCD-6DED-58DB9D7FFCCC}</Project>
+      <Project>{E9AAED70-DC87-F02D-476F-80F4C7029BEF}</Project>
       <Name>Beardy.BeardsGridLayoutGroup.Runtime</Name>
     </ProjectReference>
     <ProjectReference Include="SimpleFileBrowser.Runtime.csproj">
-      <Project>{CC361FEB-C7DA-05C7-04BA-32B2B2013D31}</Project>
+      <Project>{DF05C9C8-464E-89B9-042E-50A32DE18727}</Project>
       <Name>SimpleFileBrowser.Runtime</Name>
     </ProjectReference>
   </ItemGroup>
